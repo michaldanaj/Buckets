@@ -22,6 +22,8 @@ statsy = bkt.gen_buckets(dane, kolumny)
 bkt.plot(statsy['AGE'])
 bkt.plot(statsy['MARRIAGE'])
 
+z_drzewka = bkt.bckt_tree(dane, 'AGE', 'default payment next month', min_samples_split=100)
+dane['xxx'] = bkt.assign(dane, 'AGE', z_drzewka, 'avg_target')    
 
 bkt.plot(statsy['PAY_AMT1'])
 statsy['PAY_AMT1']

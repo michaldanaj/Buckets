@@ -385,10 +385,13 @@ def plot(bucket, title=None):
 
     return fig  # Zwracanie obiektu Figure
 
-def assign(df, var, buckets, val):
+def assign(df, var, buckets, val)-> pd.Series:
+
+    buckets = buckets[buckets.index != "TOTAL"]
+
     # Określamy granice przedziałów
     bins = np.unique(np.sort(buckets[['od', 'do']].values.flatten()))
-    
+
     # Określamy etykiety na podstawie kolumny 'val' w buckets
     labels = buckets[val].values
     
@@ -397,13 +400,12 @@ def assign(df, var, buckets, val):
         raise ValueError("Liczba etykiet musi odpowiadać liczbie przedziałów.")
     
     # Przypisanie odpowiednich przedziałów do wartości z df[var]
-    df['bucket'] = pd.cut(df[var], bins=bins, labels=labels, right=False)
+    return pd.cut(df[var], bins=bins, labels=labels, right=False)
     
-    return df
 
 def bckt_tree(
     df: pd.DataFrame,
-
+    var: str,
     target: str,
     max_depth: int = 3,
     min_samples_split: int = 2,
@@ -420,8 +422,14 @@ def bckt_tree(
     Returns:
         DataFrame z wynikami drzewa decyzyjnego.
     """
-    tr = tree.make_tree(df, target, max_depth=max_depth, min_samples_leaf=min_samples_split)
+    tr = tree.make_tree(df, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split)
     bounds = tree.extract_leaf_bounds(tr)
+    # TODO: ogarnąć poniższe, może z wykorzystaniem Categorical
+    bounds.insert(0, df[var].min())
+    bounds.append(df[var].max())
+    # TODO: dodać resztę parametrów funkcji bckt_cut_stats
+    wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
+    return wyn
 
 
 def gen_buckets(df, types: ColumnTypes) -> dict[str, pd.DataFrame]:
