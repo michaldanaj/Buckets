@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 #TODO: dodać wagi
-def make_tree(df: pd.DataFrame, var:str, target: str, max_depth: int = 3) -> DecisionTreeClassifier:
+def make_tree(df: pd.DataFrame, var:str, target: str, max_depth: int = 3, 
+              min_samples_leaf: int =50) -> DecisionTreeClassifier:
     """
     Tworzy drzewo decyzyjne na podstawie danych.
 
@@ -21,7 +22,7 @@ def make_tree(df: pd.DataFrame, var:str, target: str, max_depth: int = 3) -> Dec
     X = df[var]
     y = df[target]
 
-    tree = DecisionTreeClassifier(max_depth=max_depth)
+    tree = DecisionTreeClassifier(max_depth=max_depth, min_samples_leaf=min_samples_leaf)
     tree.fit(X, y)
 
     return tree
@@ -68,7 +69,7 @@ def extract_leaf_info(tree, feature_names, class_names):
         leaf['class_probs'] = {class_names[i]: float(leaf['class_probs'][i]) for i in range(len(class_names))}
     return leaf_info
 
-def extract_leaf_bounds(tree):
+def extract_leaf_bounds(tree: DecisionTreeClassifier) -> list[float]:
     """
     Ekstrahuje granice liści z drzewa decyzyjnego.
 
@@ -103,26 +104,29 @@ def extract_leaf_bounds(tree):
     ret.sort()
     return ret
 
+if __name__ == "__main__":
+    # Przykład użycia:
+    dane = pd.read_csv("data/default of credit card clients.csv")
 
-# Przykład użycia:
-dane = pd.read_csv("data/default of credit card clients.csv")
+    tree = make_tree(dane, ['AGE'], 'default payment next month', max_depth=3)
+    plt.figure(figsize=(12, 8))
+    plot_tree(tree, filled=True, feature_names=['AGE'], class_names=['No Default', 'Default'])
+    plt.show()
 
-tree = make_tree(dane, ['AGE'], 'default payment next month', max_depth=3)
-plt.figure(figsize=(12, 8))
-plot_tree(tree, filled=True, feature_names=['AGE'], class_names=['No Default', 'Default'])
-plt.show()
+    # Przykład użycia:
+    leaf_info = extract_leaf_info(tree, ['AGE'], ['No Default', 'Default'])
 
-# Przykład użycia:
-leaf_info = extract_leaf_info(tree, ['AGE'], ['No Default', 'Default'])
+    for i, leaf in enumerate(leaf_info):
+        print(f"Liść {i+1}:")
+        print("  Bounds: ({0}, {1}] ".format(leaf['lower_bound'], leaf['upper_bound']))
+        print("  Upper bound:", leaf['upper_bound'])
+        print("  Przedziały:", " & ".join(leaf['intervals']))
+        print("  Liczba próbek:", leaf['samples'])
+        print("  Prawdopodobieństwa klas:", leaf['class_probs'])
+        print()
 
-for i, leaf in enumerate(leaf_info):
-    print(f"Liść {i+1}:")
-    print("  Bounds: ({0}, {1}] ".format(leaf['lower_bound'], leaf['upper_bound']))
-    print("  Upper bound:", leaf['upper_bound'])
-    print("  Przedziały:", " & ".join(leaf['intervals']))
-    print("  Liczba próbek:", leaf['samples'])
-    print("  Prawdopodobieństwa klas:", leaf['class_probs'])
-    print()
+    bounds = extract_leaf_bounds(tree)
+    print("Granice liści:", bounds)
 
-bounds = extract_leaf_bounds(tree)
-print("Granice liści:", bounds)
+    bounds2 = bckt_tree(dane, ['AGE'], 'default payment next month', max_depth=3)
+    print(bounds2)

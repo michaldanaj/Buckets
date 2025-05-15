@@ -21,12 +21,15 @@ __doc__ = """Funkcje generujące statystyki dla zmiennej objaśniającej, z uwzg
 # bckt_cut_stats -> bckt_quantiles
 # bckt_tree
 
+# TODO: zająć się obszarami poza krańcami przedziałów
+
 __version__ = 0.1
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from buckets.column_types import ColumnTypes
+import buckets.tree as tree
 
 # TODO: kolumna label zamiast bin?
 # TODO: zamiast zamieniać zmienną na stringa zawsze, sprawdzić różne inne
@@ -190,7 +193,7 @@ def bckt_cut_stats(
     target: pd.Series,
     pred: pd.Series | None = None,
     weights: pd.Series | None = None,
-    n: int = 50,
+    bins: int|list[float] = 50,
     total: bool = True,
     plot: bool = False,
     min_info: bool = False,
@@ -239,11 +242,20 @@ def bckt_cut_stats(
     if any(target.isnull()):
         raise ValueError("W zmiennej 'target' nie może być braków danych!")
 
-    kwantyle = pd.Series(
-        df.variable.quantile(
-            [i / n for i in range(n + 1)], interpolation="lower"
-        ).unique()
-    )
+    if isinstance(bins, int):
+        kwantyle = pd.Series(
+            df.variable.quantile(
+                [i / bins for i in range(bins + 1)], interpolation="lower"
+            ).drop_duplicates()
+        )
+    #TODO: dodać testy tego ifa
+    elif isinstance(bins, list):
+        #bins.insert(0, -np.inf) 
+        #bins.append(np.inf)
+        kwantyle = pd.Series(bins).sort_values().drop_duplicates()
+    else:
+        raise ValueError("bins musi być liczbą całkowitą lub listą wartości.")
+
     df["bin"] = pd.cut(df.variable, kwantyle, include_lowest=True).astype(str)
 
     # obsługa braków danych w zmiennej
@@ -389,6 +401,29 @@ def assign(df, var, buckets, val):
     
     return df
 
+def bckt_tree(
+    df: pd.DataFrame,
+
+    target: str,
+    max_depth: int = 3,
+    min_samples_split: int = 2,
+) -> pd.DataFrame:
+    """
+    Funkcja do generowania drzewa decyzyjnego na podstawie ramki danych.
+
+    Args:
+        df: Ramka danych Pandas.
+        target: Nazwa kolumny docelowej (target).
+        max_depth: Maksymalna głębokość drzewa.
+        min_samples_split: Minimalna liczba próbek wymagana do podziału węzła.
+
+    Returns:
+        DataFrame z wynikami drzewa decyzyjnego.
+    """
+    tr = tree.make_tree(df, target, max_depth=max_depth, min_samples_leaf=min_samples_split)
+    bounds = tree.extract_leaf_bounds(tr)
+
+
 def gen_buckets(df, types: ColumnTypes) -> dict[str, pd.DataFrame]:
     """
     Funkcja do iteracji po kolumnach ramki danych i wywoływania funkcji bckt_stats
@@ -461,6 +496,15 @@ df = pd.DataFrame({
     'col4': [1, 1, 1, 1, 1],
     'target': [0, 1, 0, 1, 0]
 })
+
+bckt_cut_stats(
+    variable=df['col3'],
+    target=df['target'],
+    #bins=[0, 3, 6],
+    bins= 2,
+    total=True,
+    plot=True
+)
 
 column_types = ColumnTypes(df, discrete_threshold=3)
 print(column_types.types)
