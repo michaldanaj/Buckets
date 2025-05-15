@@ -1,0 +1,19 @@
+site_name: Pakiet buckets 
+
+nav:
+  - Główna: index.md
+
+plugins: 
+  - mkdocstrings:
+        handlers:
+                python:
+                        paths: [src]  # search packages in the src folder
+  - search
+
+theme:
+  #name: material
+  name: readthedocs
+  features:
+    - search.suggest
+    - search.highlight
+    - content.tabs.link

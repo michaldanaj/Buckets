@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "buckets"
+version = "0.2.0"
+authors = [
+  { name="Zespół modelarzy" },
+]
+description = "Statystyki targetu na przedziałach i wartościach zmiennch"
+readme = "README.md"
+# TODO: przetestować działanie na python 3.7
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "matplotlib>=3.5.3",
+    "pandas>=1.1.5",
+    "scikit-learn>=1.0.2",
+    "tabulate>=0.9.0",
+]
+
+#[tool.uv]
+#exclude-newer = "2024-12-31T00:00:00Z"
+#[[tool.uv.index]]
+#name = "biswsvm2"
+#url =  "http://biswsvm2:8081/repository/pypi-proxy/simple"
+#
+#[[tool.uv.index]]
+#name = "ds"
+#url = "http://biswsvm2.plusnet:8081/repository/dd_hosted_pypi_sdist_datascience/simple"
+#publish-url = "http://biswsvm2.plusnet:8081/repository/dd_hosted_pypi_sdist_datascience/"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.16.2",
+    "pytest>=7.4.4",
+]
+
