@@ -23,6 +23,8 @@ def generate_variable_report(data: dict):
     sections = []
     nav_links = []
 
+    data = dict(sorted(data.items(), key=lambda x: x[1][0].iloc[0, 1], reverse=True))
+    
     for column, elements in data.items():
         section_html = f"""
         <div class="variable-section" id="{column}">
@@ -56,10 +58,11 @@ def generate_variable_report(data: dict):
         section_html += "</div>"
         sections.append(section_html)
 
+        gini = round(elements[0].iloc[0, 1] * 100, 1)
         # Dodawanie linku nawigacji
-        nav_links.append(f'<li title="{column}"><a href="#{column}">{column}</a></li>')
+        nav_links.append(f'<li title="{column}"><a href="#{column}">{column} ({gini})</a></li>')
 
-    return "\n".join(sections), "\n".join(nav_links)
+    return "\n".join(sections), "\n".join(nav_links), "\n".join(sorted(nav_links))
 # Struktura HTML
 #def generate_variable_report(df: pd.DataFrame):
 #    """
@@ -114,7 +117,7 @@ def generate_variable_report(data: dict):
 #    return "\n".join(sections), "\n".join(nav_links)
 
 
-def fill_template(report_content: str, navigation_links: str) -> str:
+def fill_template(report_content: str, navigation_links: str, navigation_links2) -> str:
     html_template = f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -187,10 +190,12 @@ def fill_template(report_content: str, navigation_links: str) -> str:
     </head>
     <body>
         <nav>
-            <h2>Nawigacja</h2>
+            <h2>Według siły</h2>
             <ul>
                 {navigation_links}
             </ul>
+            <h2>Alfabetycznie</h2>
+                {navigation_links2}
         </nav>
         <div class="content">
             <h1>Raport zmiennych</h1>
@@ -205,8 +210,8 @@ def fill_template(report_content: str, navigation_links: str) -> str:
 
 def generate_report(report_objects: dict[str, list]) -> str:
     # Generowanie sekcji i nawigacji
-    report_content, navigation_links = generate_variable_report(report_objects)
-    return fill_template(report_content, navigation_links)
+    report_content, navigation_links, navigation_links2 = generate_variable_report(report_objects)
+    return fill_template(report_content, navigation_links, navigation_links2)
 
 
 def save(report, filename):
@@ -237,8 +242,8 @@ if __name__ == "__main__":
     }
 
     # Generowanie raportu
-    report_content, navigation_links = generate_variable_report(data)
-    html = fill_template(report_content, navigation_links)
+    report_content, navigation_links, navigation_links2 = generate_variable_report(data)
+    html = fill_template(report_content, navigation_links2)
 
     # Zapis raportu
     os.makedirs("result", exist_ok=True)

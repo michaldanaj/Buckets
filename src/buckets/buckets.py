@@ -30,6 +30,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from buckets.column_types import ColumnTypes
 import buckets.tree as tree
+import buckets.statitics as st
 
 # TODO: kolumna label zamiast bin?
 # TODO: zamiast zamieniać zmienną na stringa zawsze, sprawdzić różne inne
@@ -139,7 +140,12 @@ def bckt_stats(
     # stąd trzeba konwersję przeprowadzić z opcją errors (tylko w Series)
     pom = wyn.index.to_series()
     if pd.api.types.is_numeric_dtype(var):
-        pom = pd.to_numeric(pom, errors="coerce")
+        # Zamiana int na Int, bo w tabelce mam NaN dla Totala
+        if var.dtype == "int64":
+            pom = pd.to_numeric(pom, errors="coerce").astype("Int64")
+        else:
+            pom = pd.to_numeric(pom, errors="coerce").astype(var.dtype)
+
 
     wyn["discrete"] = pom
 
@@ -388,19 +394,39 @@ def plot(bucket, title=None):
 def assign(df, var, buckets, val)-> pd.Series:
 
     buckets = buckets[buckets.index != "TOTAL"]
+    #print('1')
+    #print(buckets)
 
-    # Określamy granice przedziałów
-    bins = np.unique(np.sort(buckets[['od', 'do']].values.flatten()))
+    # Rozdziealam definicje przedziałową od wartości dyskretnych
+    buckets_continuous = buckets[~ buckets['od'].isna()]
+    buckets_discrete = buckets[buckets['od'].isna()]
 
-    # Określamy etykiety na podstawie kolumny 'val' w buckets
-    labels = buckets[val].values
-    
-    # Sprawdzamy, czy liczba etykiet jest zgodna z liczbą przedziałów (bins - 1)
-    if len(labels) != len(bins) - 1:
-        raise ValueError("Liczba etykiet musi odpowiadać liczbie przedziałów.")
-    
-    # Przypisanie odpowiednich przedziałów do wartości z df[var]
-    return pd.cut(df[var], bins=bins, labels=labels, right=False)
+    if buckets_continuous.shape[0] > 0:
+        # Określamy granice przedziałów
+        bins = np.unique(np.sort(buckets_continuous[['od', 'do']].values.flatten()))
+        #print('2')
+        #print(bins)
+
+        # Określamy etykiety na podstawie kolumny 'val' w buckets
+        labels = buckets_continuous[val].values
+        
+        # Sprawdzamy, czy liczba etykiet jest zgodna z liczbą przedziałów (bins - 1)
+        if len(labels) != len(bins) - 1:
+            raise ValueError("Liczba etykiet musi odpowiadać liczbie przedziałów.")
+        
+        #print('---- labels ----')
+        #print(labels)
+        # Przypisanie odpowiednich przedziałów do wartości z df[var]
+        wyn = pd.cut(df[var], bins=bins, labels=labels, include_lowest=True, ordered=False)
+    elif buckets_discrete.shape[0] > 0:
+        # Przypisanie wartości z kolumny 'val' w buckets do zmiennej df[var]
+        # dla wartości dyskretnych
+        bins = pd.Series(buckets_discrete[val])
+        bins.index =buckets_discrete['discrete']
+        wyn = bins[df[var]]
+    #print('3')
+    #print(wyn)
+    return wyn
     
 
 def bckt_tree(
@@ -425,8 +451,8 @@ def bckt_tree(
     tr = tree.make_tree(df, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split)
     bounds = tree.extract_leaf_bounds(tr)
     # TODO: ogarnąć poniższe, może z wykorzystaniem Categorical
-    bounds.insert(0, df[var].min())
-    bounds.append(df[var].max())
+    bounds.insert(0, df[var].min()-1)
+    bounds.append(df[var].max()+1)
     # TODO: dodać resztę parametrów funkcji bckt_cut_stats
     wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
     return wyn
@@ -456,20 +482,20 @@ def gen_buckets(df, types: ColumnTypes) -> dict[str, pd.DataFrame]:
         analytical_type = row['analytical_type']
         role = row['role']
 
-        if role == 'skipped':
+        if role in ['skipped', 'target']:
             continue
 
         if analytical_type == 'discrete':
-            print(f"Analizuję zmienną dyskretną: {column_name}")
+            #print(f"Analizuję zmienną dyskretną: {column_name}")
             # Wywołanie funkcji bckt_stats
             result = bckt_stats(df[column_name], df[target_col])
-            print(result)
+            #print(result)
 
         elif analytical_type == 'continuous':
-            print(f"Analizuję zmienną ciągłą: {column_name}")
+            #print(f"Analizuję zmienną ciągłą: {column_name}")
             # Wywołanie funkcji bckt_cut_stats
             result = bckt_cut_stats(df[column_name], df[target_col])
-            print(result)
+            #print(result)
         
         results[column_name] = result
     return results
@@ -488,11 +514,27 @@ def gen_report_objects(df: pd.DataFrame, types:ColumnTypes ) -> dict[str, list]:
     buckets = gen_buckets(df, types)
     report = {}
 
+
     for variable, stats in buckets.items():
+
+        #####    dyskretyzacja drzewskiem    #####
+        if types.types.loc[variable, "analytical_type"] == 'continuous':
+            discrete = bckt_tree(df, variable, 'default payment next month', min_samples_split=100)
+        else:
+            discrete = stats
+
+        ####   gini calc   #####
+        x = assign(df, var=variable, buckets=discrete, val='avg_target')
+
+        #####    gini    #####
+        gini = pd.DataFrame({'GINI': [st.gini(df[variable], df[types.target])],
+                            'GINI discrete': [st.gini(x, df[types.target])]})
+
         wykres = plot(stats, variable)
 
         # Dodanie tabelki i wykresu do raportu
-        report[variable] = [stats, wykres]
+        # TODO: dać tu raczej słownik, niż listę
+        report[variable] = [gini, discrete, wykres]
 
     return report
 

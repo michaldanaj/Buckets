@@ -93,4 +93,4 @@ class ColumnTypes:
             })
 
         # Konwersja wyników do DataFrame
-        return pd.DataFrame(results)
+        return pd.DataFrame(results, index=df.columns)

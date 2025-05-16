@@ -1,4 +1,5 @@
 import buckets.buckets as bkt
+import buckets.column_types as ct
 import pandas as pd
 import buckets.var_report as vr
 import os 
@@ -16,14 +17,18 @@ def test_read_csv() -> pd.DataFrame:
 
 # test_read_csv()
 dane = test_read_csv()
-kolumny = bkt.ColumnTypes(dane)
+kolumny = ct.ColumnTypes(dane)
 kolumny.set('default payment next month', 'target')
 statsy = bkt.gen_buckets(dane, kolumny)
 bkt.plot(statsy['AGE'])
 bkt.plot(statsy['MARRIAGE'])
 
+######    do testów to wrzucić, wartość z granicy   ########
 z_drzewka = bkt.bckt_tree(dane, 'AGE', 'default payment next month', min_samples_split=100)
 dane['xxx'] = bkt.assign(dane, 'AGE', z_drzewka, 'avg_target')    
+z = bkt.assign(pd.DataFrame({'AGE':[79]}), 'AGE', z_drzewka, 'avg_target')    
+print("z: ", z)
+######    do testów to wrzucić   ########
 
 bkt.plot(statsy['PAY_AMT1'])
 statsy['PAY_AMT1']
