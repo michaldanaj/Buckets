@@ -1,8 +1,12 @@
-import buckets.buckets as bkt
+import os 
+print(os.getcwd())
+import sys
+print(sys.path)
+
+import buckets.buck as bkt
 import buckets.column_types as ct
 import pandas as pd
 import buckets.var_report as vr
-import os 
 
 # oczytuję csv z katalogu data
 def test_read_csv() -> pd.DataFrame:

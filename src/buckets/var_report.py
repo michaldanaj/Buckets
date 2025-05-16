@@ -167,6 +167,7 @@ def fill_template(report_content: str, navigation_links: str, navigation_links2)
                 box-sizing: border-box; 
             }}
             .table {{ 
+                font-size: 0.8em; /* Zmniejszenie czcionki */
                 border-collapse: collapse; 
                 width: 100%; 
                 margin-top: 20px; 
