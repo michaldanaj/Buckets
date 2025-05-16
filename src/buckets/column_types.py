@@ -9,6 +9,30 @@ class ColumnTypes:
         self.discrete_threshold = discrete_threshold
         self.types = self.determine_column_types(df)
 
+    @property
+    def target(self) -> str:
+        """
+        Funkcja zwracająca nazwę kolumny docelowej.
+
+        Args:
+            value: Nazwa kolumny docelowej.
+
+        Returns:
+            str: Nazwa kolumny docelowej.
+        """
+        return self.types.loc[self.types['role'] == 'target', 'column_name'].values[0]
+
+    @target.setter
+    def target(self, value: str = 'target'):
+        """
+        Funkcja do ustawiania nazwy kolumny docelowej.
+
+        Args:
+            value: Nazwa kolumny docelowej.
+        """
+        self.types.loc[self.types['role'] == 'target', 'column_name'] = value 
+
+    
     def set(self, colnames: list[str], analytical_type: str):
         """
         Funkcja do ustawiania typu analitycznego dla określonych kolumn.
