@@ -364,29 +364,28 @@ def plot(bucket, title=None):
     fig, ax = plt.subplots()  # Tworzenie obiektu Figure i Axes
 
     if bucket['srodek'].isnull().all():
-        # Rysowanie scatter plotu z wielkością kropek odzwierciedlającą 'n_obs'
-        bucket.plot.scatter(
-            x='bin', 
-            y='avg_target', 
-            s=bucket['pct_obs'] * 100,  # Skalowanie wielkości kropek
-            alpha=0.5, 
-            legend=True,
-            ax=ax  # Użycie wcześniej utworzonego obiektu Axes
-        )
-        ax.set_xlabel("Bin")
-        ax.set_ylabel("Avg Target")
-        ax.set_title("Scatter Plot: Avg Target vs Bin (Size ~ n_obs)")
+        x_var = 'bin'
     else:
-        # Rysowanie scatter plotu
-        bucket.plot.scatter(
-            x="srodek", 
-            y="avg_target", 
-            alpha=0.5, 
-            label="target",
-            ax=ax  # Użycie wcześniej utworzonego obiektu Axes
-        )
-        ax.legend()
+        x_var = 'srodek'
 
+    # wielkość punktu
+    #size = np.sqrt(bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*50
+    size = (bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*25
+
+    # Rysowanie scatter plotu z wielkością kropek odzwierciedlającą 'n_obs'
+    bucket.plot.scatter(
+        x=x_var, 
+        y='avg_target', 
+        s=size,  # Skalowanie wielkości kropek
+        alpha=0.5, 
+        legend=True,
+        label="target",
+        ax=ax  # Użycie wcześniej utworzonego obiektu Axes
+    )
+    ax.legend()
+
+    ax.set_xlabel("Bin")
+    ax.set_ylabel("Avg Target")
     ax.set_title(title)
 
     return fig  # Zwracanie obiektu Figure

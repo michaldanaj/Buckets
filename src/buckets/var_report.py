@@ -191,7 +191,7 @@ def fill_template(report_content: str, navigation_links: str, navigation_links2)
     </head>
     <body>
         <nav>
-            <h2>Według siły</h2>
+            <h2>Według siły (GINI)</h2>
             <ul>
                 {navigation_links}
             </ul>
