@@ -538,37 +538,39 @@ def gen_report_objects(df: pd.DataFrame, types:ColumnTypes ) -> dict[str, list]:
 
     return report
 
-# Przykład użycia
-df = pd.DataFrame({
-    'col1': [1, 2, 3, 4, 5],
-    'col2': ['a', 'b', 'a', 'c', 'b'],
-    'col3': [1.1, 2.2, 3.3, 4.4, 5.5],
-    'col4': [1, 1, 1, 1, 1],
-    'target': [0, 1, 0, 1, 0]
-})
+if __name__ == "__main__":
 
-bckt_cut_stats(
-    variable=df['col3'],
-    target=df['target'],
-    #bins=[0, 3, 6],
-    bins= 2,
-    total=True,
-    plot=True
-)
+    # Przykład użycia
+    df = pd.DataFrame({
+        'col1': [1, 2, 3, 4, 5],
+        'col2': ['a', 'b', 'a', 'c', 'b'],
+        'col3': [1.1, 2.2, 3.3, 4.4, 5.5],
+        'col4': [1, 1, 1, 1, 1],
+        'target': [0, 1, 0, 1, 0]
+    })
 
-column_types = ColumnTypes(df, discrete_threshold=3)
-print(column_types.types)
-# Przykładowe dane
-df = pd.DataFrame({
-    'value': [2, 5, 8, 15, 25]
-})
+    bckt_cut_stats(
+        variable=df['col3'],
+        target=df['target'],
+        #bins=[0, 3, 6],
+        bins= 2,
+        total=True,
+        plot=True
+    )
 
-buckets = pd.DataFrame({
-    'od': [0, 5, 10, 20],
-    'do': [5, 10, 20, 30],
-    'fit': [0.1, 3, 1, -0.1]  
-})
+    column_types = ColumnTypes(df, discrete_threshold=3)
+    print(column_types.types)
+    # Przykładowe dane
+    df = pd.DataFrame({
+        'value': [2, 5, 8, 15, 25]
+    })
 
-# Wywołanie funkcji
-df2 = assign(df, 'value', buckets,  'fit')
-print(df2)
+    buckets = pd.DataFrame({
+        'od': [0, 5, 10, 20],
+        'do': [5, 10, 20, 30],
+        'fit': [0.1, 3, 1, -0.1]  
+    })
+
+    # Wywołanie funkcji
+    df2 = assign(df, 'value', buckets,  'fit')
+    print(df2)
