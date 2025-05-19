@@ -23,7 +23,7 @@ kolumny = ct.ColumnTypes(dane)
 kolumny.set("default payment next month", "target")
 
 # Generowanie raportu
-wyn = bkt.gen_report_objects(dane, kolumny, max_levels=10)
+wyn = bkt.gen_report_objects(dane, kolumny, max_levels=20)
 html = vr.generate_report(wyn)
 
 # Zapis raportu

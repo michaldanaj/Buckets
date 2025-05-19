@@ -348,7 +348,7 @@ def bckt_cut_stats(
 def plot(bucket, title=None):
     """
     Funkcja rysująca wykres na podstawie danych w bucket.
-    Jeśli wszystkie wartości w kolumnie 'srodek' są brakami, rysuje scatter plot,
+    Jeśli wszystkie wartości w kolumnie 'median' są brakami, rysuje scatter plot,
     gdzie wielkość kropek odzwierciedla kolumnę 'n_obs'.
     W przeciwnym wypadku rysuje scatter plot.
     """
@@ -357,10 +357,10 @@ def plot(bucket, title=None):
 
     fig, ax = plt.subplots()  # Tworzenie obiektu Figure i Axes
 
-    if bucket["srodek"].isnull().all():
+    if bucket["median"].isnull().all():
         x_var = "bin"
     else:
-        x_var = "srodek"
+        x_var = "median"
 
     # wielkość punktu
     # size = np.sqrt(bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*50
