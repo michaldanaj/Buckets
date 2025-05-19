@@ -77,6 +77,8 @@ def bckt_stats(
       ascending: czy sortować wyniki rosnąco
       weights: kolumna z wagami
     """
+
+
     # sprawdzam braki danych w target
     if any(target.isnull()):
         raise ValueError("W zmiennej 'target' nie może być braków danych!")
@@ -93,7 +95,11 @@ def bckt_stats(
 
     # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
     df = pd.DataFrame({"var": var, "target": target, "pred": pred, "weights": weights})
+    # konwertuję na typy pandasowe.
+    # Robię to, żeby int-y mogły mieć NaN-y
+    df = df.convert_dtypes()
 
+    # TODO: jeszcze to ogarnąć, również w kontekście innych funkcji
     df["bin"] = var.astype(str)
     nulle = var.isnull()
     df.loc[nulle, "bin"] = NA_BIN_NAME
@@ -138,10 +144,11 @@ def bckt_stats(
     pom = wyn.index.to_series()
     if pd.api.types.is_numeric_dtype(var):
         # Zamiana int na Int, bo w tabelce mam NaN dla Totala
-        if var.dtype == "int64":
-            pom = pd.to_numeric(pom, errors="coerce").astype("Int64")
+        #TODO: zmienić to
+        if df['var'].dtype == "nic":
+            pom = pd.to_numeric(pom, errors="coerce").astype("Int"+df['var'].dtype[4:])
         else:
-            pom = pd.to_numeric(pom, errors="coerce").astype(var.dtype)
+            pom = pd.to_numeric(pom, errors="coerce").astype(df['var'].dtype)
 
     wyn["discrete"] = pom
 
@@ -487,7 +494,7 @@ def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> d
 
         # jeśli zbyt dużo kategrycznych wartości
 
-        elif analytical_type == "discrete":
+        elif analytical_type in ["discrete", "categorical"]:
             # print(f"Analizuję zmienną dyskretną: {column_name}")
             # TODO: zobaczyć, jak było ogarnięte w R, żeby jednak robić statystyki zmiennej
             # numerycznej, określonej jako dyskretna. A może i tak jest lepiej?
@@ -505,6 +512,8 @@ def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> d
             # Wywołanie funkcji bckt_cut_stats
             result = bckt_cut_stats(df[column_name], df[target_col])
             # print(result)
+        else:
+            raise ValueError(f"Nieznany typ analityczny: {analytical_type}")
 
         results[column_name] = result
     return results
@@ -544,16 +553,22 @@ def gen_report_objects(df: pd.DataFrame, types: ColumnTypes, max_levels:int = 20
         #####    dyskretyzacja drzewskiem    #####
         if types.types.loc[variable, "analytical_type"] == "continuous":
             discrete = bckt_tree(
-                df, variable, "default payment next month", min_samples_split=100
+                df, variable, types.target, min_samples_split=100
             )
         else:
             discrete = buckets
 
         ####    gini    #####
         x = assign(df, var=variable, buckets=discrete, val="avg_target")
+        if types.types.loc[variable, "analytical_type"] == "continuous":
+            x_orig = df[variable]
+        else:
+            x_orig = x
+
+
         gini = pd.DataFrame(
             {
-                "GINI": [st.gini(df[variable], df[types.target])],
+                "GINI": [st.gini(x_orig, df[types.target])],
                 "GINI discrete": [st.gini(x, df[types.target])],
             }
         )
