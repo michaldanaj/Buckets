@@ -3,9 +3,8 @@
 ## Pakiet buckets
 
 Funkcje generujące statystyki dla zmiennej objaśniającej, z uwzględnieniem
-	zmiennej celu (target), oraz opcjonalnie predykcji modelu
+        zmiennej celu (target), oraz opcjonalnie predykcji modelu
 """
-
 
 __doc__ = """Funkcje generujące statystyki dla zmiennej objaśniającej, z uwzględnieniem
 	zmiennej celu (target), oraz opcjonalnie predykcji modelu
@@ -15,7 +14,7 @@ __doc__ = """Funkcje generujące statystyki dla zmiennej objaśniającej, z uwzg
     bckt_cut_stats - statystyki dla zmiennej ciągłej
 """
 
-# TODO: Nazewnictwo. 
+# TODO: Nazewnictwo.
 # może niech będzie klasa, w której będą funkcje do generowania bucketów:
 # bckt_stats -> bckt_discrete
 # bckt_cut_stats -> bckt_quantiles
@@ -93,9 +92,7 @@ def bckt_stats(
         pred.index = var.index
 
     # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
-    df = pd.DataFrame(
-        {"var": var, "target": target, "pred": pred, "weights": weights}
-    )
+    df = pd.DataFrame({"var": var, "target": target, "pred": pred, "weights": weights})
 
     df["bin"] = var.astype(str)
     nulle = var.isnull()
@@ -145,7 +142,6 @@ def bckt_stats(
             pom = pd.to_numeric(pom, errors="coerce").astype("Int64")
         else:
             pom = pd.to_numeric(pom, errors="coerce").astype(var.dtype)
-
 
     wyn["discrete"] = pom
 
@@ -199,7 +195,7 @@ def bckt_cut_stats(
     target: pd.Series,
     pred: pd.Series | None = None,
     weights: pd.Series | None = None,
-    bins: int|list[float] = 50,
+    bins: int | list[float] = 50,
     total: bool = True,
     plot: bool = False,
     min_info: bool = False,
@@ -254,10 +250,10 @@ def bckt_cut_stats(
                 [i / bins for i in range(bins + 1)], interpolation="lower"
             ).drop_duplicates()
         )
-    #TODO: dodać testy tego ifa
+    # TODO: dodać testy tego ifa
     elif isinstance(bins, list):
-        #bins.insert(0, -np.inf) 
-        #bins.append(np.inf)
+        # bins.insert(0, -np.inf)
+        # bins.append(np.inf)
         kwantyle = pd.Series(bins).sort_values().drop_duplicates()
     else:
         raise ValueError("bins musi być liczbą całkowitą lub listą wartości.")
@@ -320,9 +316,7 @@ def bckt_cut_stats(
     wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "od"] = kwantyle.iloc[
         :-1
     ].to_list()
-    wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "do"] = kwantyle.iloc[
-        1:
-    ].to_list()
+    wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "do"] = kwantyle.iloc[1:].to_list()
     wyn["srodek"] = (wyn["od"] + wyn["do"]) / 2
 
     # uzupełniam kolumnę nr, bo po przesortowaniu jest bez sensu
@@ -358,29 +352,29 @@ def plot(bucket, title=None):
     gdzie wielkość kropek odzwierciedla kolumnę 'n_obs'.
     W przeciwnym wypadku rysuje scatter plot.
     """
-    if 'TOTAL' in bucket.index:
-        bucket = bucket.drop(index='TOTAL')
+    if "TOTAL" in bucket.index:
+        bucket = bucket.drop(index="TOTAL")
 
     fig, ax = plt.subplots()  # Tworzenie obiektu Figure i Axes
 
-    if bucket['srodek'].isnull().all():
-        x_var = 'bin'
+    if bucket["srodek"].isnull().all():
+        x_var = "bin"
     else:
-        x_var = 'srodek'
+        x_var = "srodek"
 
     # wielkość punktu
-    #size = np.sqrt(bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*50
-    size = (bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*25
+    # size = np.sqrt(bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*50
+    size = (bucket["n_obs"] / (bucket["n_obs"].sum() / bucket.shape[0])) * 25
 
     # Rysowanie scatter plotu z wielkością kropek odzwierciedlającą 'n_obs'
     bucket.plot.scatter(
-        x=x_var, 
-        y='avg_target', 
+        x=x_var,
+        y="avg_target",
         s=size,  # Skalowanie wielkości kropek
-        alpha=0.5, 
+        alpha=0.5,
         legend=True,
         label="target",
-        ax=ax  # Użycie wcześniej utworzonego obiektu Axes
+        ax=ax,  # Użycie wcześniej utworzonego obiektu Axes
     )
     ax.legend()
 
@@ -390,43 +384,45 @@ def plot(bucket, title=None):
 
     return fig  # Zwracanie obiektu Figure
 
-def assign(df, var, buckets, val)-> pd.Series:
 
+def assign(df, var, buckets, val) -> pd.Series:
     buckets = buckets[buckets.index != "TOTAL"]
-    #print('1')
-    #print(buckets)
+    # print('1')
+    # print(buckets)
 
     # Rozdziealam definicje przedziałową od wartości dyskretnych
-    buckets_continuous = buckets[~ buckets['od'].isna()]
-    buckets_discrete = buckets[buckets['od'].isna()]
+    buckets_continuous = buckets[~buckets["od"].isna()]
+    buckets_discrete = buckets[buckets["od"].isna()]
 
     if buckets_continuous.shape[0] > 0:
         # Określamy granice przedziałów
-        bins = np.unique(np.sort(buckets_continuous[['od', 'do']].values.flatten()))
-        #print('2')
-        #print(bins)
+        bins = np.unique(np.sort(buckets_continuous[["od", "do"]].values.flatten()))
+        # print('2')
+        # print(bins)
 
         # Określamy etykiety na podstawie kolumny 'val' w buckets
         labels = buckets_continuous[val].values
-        
+
         # Sprawdzamy, czy liczba etykiet jest zgodna z liczbą przedziałów (bins - 1)
         if len(labels) != len(bins) - 1:
             raise ValueError("Liczba etykiet musi odpowiadać liczbie przedziałów.")
-        
-        #print('---- labels ----')
-        #print(labels)
+
+        # print('---- labels ----')
+        # print(labels)
         # Przypisanie odpowiednich przedziałów do wartości z df[var]
-        wyn = pd.cut(df[var], bins=bins, labels=labels, include_lowest=True, ordered=False)
+        wyn = pd.cut(
+            df[var], bins=bins, labels=labels, include_lowest=True, ordered=False
+        )
     elif buckets_discrete.shape[0] > 0:
         # Przypisanie wartości z kolumny 'val' w buckets do zmiennej df[var]
         # dla wartości dyskretnych
         bins = pd.Series(buckets_discrete[val])
-        bins.index =buckets_discrete['discrete']
+        bins.index = buckets_discrete["discrete"]
         wyn = bins[df[var]]
-    #print('3')
-    #print(wyn)
+    # print('3')
+    # print(wyn)
     return wyn
-    
+
 
 def bckt_tree(
     df: pd.DataFrame,
@@ -447,89 +443,122 @@ def bckt_tree(
     Returns:
         DataFrame z wynikami drzewa decyzyjnego.
     """
-    tr = tree.make_tree(df, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split)
+    tr = tree.make_tree(
+        df, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split
+    )
     bounds = tree.extract_leaf_bounds(tr)
     # TODO: ogarnąć poniższe, może z wykorzystaniem Categorical
-    bounds.insert(0, df[var].min()-1)
-    bounds.append(df[var].max()+1)
+    bounds.insert(0, df[var].min() - 1)
+    bounds.append(df[var].max() + 1)
     # TODO: dodać resztę parametrów funkcji bckt_cut_stats
     wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
     return wyn
 
 
-def gen_buckets(df, types: ColumnTypes) -> dict[str, pd.DataFrame]:
+def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> dict[str, pd.DataFrame]:
     """
     Funkcja do iteracji po kolumnach ramki danych i wywoływania funkcji bckt_stats
     dla zmiennych dyskretnych oraz bckt_cut_stats dla zmiennych ciągłych.
 
+    Jeśli zmienna dyskretna ma zbyt wiele poziomów, statystyki nie zostaną wygenerowane.
+
     Args:
         df: Ramka danych Pandas.
         types: Obiekt klasy ColumnTypes.
+        max_levels: Maksymalna liczba poziomów dla zmiennych dyskretnych.
 
     Returns:
         None
     """
     results = {}
-    
+
     for index, row in types.types.iterrows():
-        if row['role'] == 'target':
-           target_col = row['column_name']
+        if row["role"] == "target":
+            target_col = row["column_name"]
     assert target_col is not None, "Nie znaleziono kolumny docelowej (target)."
 
     for index, row in types.types.iterrows():
-        column_name = row['column_name']
-        analytical_type = row['analytical_type']
-        role = row['role']
+        column_name = row["column_name"]
+        analytical_type = row["analytical_type"]
+        role = row["role"]
 
-        if role in ['skipped', 'target']:
+        if role in ["skipped", "target"]:
             continue
 
-        if analytical_type == 'discrete':
-            #print(f"Analizuję zmienną dyskretną: {column_name}")
-            # Wywołanie funkcji bckt_stats
-            result = bckt_stats(df[column_name], df[target_col])
-            #print(result)
+        # jeśli zbyt dużo kategrycznych wartości
 
-        elif analytical_type == 'continuous':
-            #print(f"Analizuję zmienną ciągłą: {column_name}")
+        elif analytical_type == "discrete":
+            # print(f"Analizuję zmienną dyskretną: {column_name}")
+            # TODO: zobaczyć, jak było ogarnięte w R, żeby jednak robić statystyki zmiennej
+            # numerycznej, określonej jako dyskretna. A może i tak jest lepiej?
+            # Najpierw zmienną numeryczną klasyfikujemy jako dyskretną, żeby później stwierdzić,
+            # że jest ich za dużo i nie robić statystyk? Uspójnić to jakoś.
+            if df[column_name].nunique() > max_levels:
+                result = pd.DataFrame({"warning": "Too many categorical levels"}, index=[0])
+            else:
+                # Wywołanie funkcji bckt_stats
+                result = bckt_stats(df[column_name], df[target_col])
+            # print(result)
+
+        elif analytical_type == "continuous":
+            # print(f"Analizuję zmienną ciągłą: {column_name}")
             # Wywołanie funkcji bckt_cut_stats
             result = bckt_cut_stats(df[column_name], df[target_col])
-            #print(result)
-        
+            # print(result)
+
         results[column_name] = result
     return results
 
-def gen_report_objects(df: pd.DataFrame, types:ColumnTypes ) -> dict[str, list]:
+
+def gen_report_objects(df: pd.DataFrame, types: ColumnTypes, max_levels:int = 20) -> dict[str, list]:
     """
-    Funkcja generująca raport na podstawie wyników funkcji make_loop.
+    Funkcja generująca raport ze statystykami dla zmiennych w ramce danych, 
+    opisanych w `types`. 
 
     Args:
-        results: Słownik, którego kluczem jest nazwa zmiennej, a wartością DataFrame ze statystykami.
+        types: Obiekt klasy ColumnTypes.
+        max_levels: Maksymalna liczba poziomów dla zmiennych dyskretnych.
+        df: Ramka danych Pandas.
 
     Returns:
         Słownik, którego kluczem jest nazwa zmiennej, a wartością lista:
         [tabelka ze statystykami, wykres utworzony na jej podstawie].
     """
-    buckets = gen_buckets(df, types)
+    buckets_d = gen_buckets(df, types, max_levels=max_levels)
     report = {}
 
+    for variable, buckets in buckets_d.items():
+        
+        # Jeśli w kolumnie 'warning' jest informacja o zbyt dużej liczbie kategorii
+        if buckets.columns[0] == "warning":
+            gini = pd.DataFrame(
+                {
+                    "GINI": [-9.999],
+                    "GINI discrete": [-9.999],
+                }
+            )
+            report[variable] = [gini, buckets , None]
 
-    for variable, stats in buckets.items():
+            continue
 
         #####    dyskretyzacja drzewskiem    #####
-        if types.types.loc[variable, "analytical_type"] == 'continuous':
-            discrete = bckt_tree(df, variable, 'default payment next month', min_samples_split=100)
+        if types.types.loc[variable, "analytical_type"] == "continuous":
+            discrete = bckt_tree(
+                df, variable, "default payment next month", min_samples_split=100
+            )
         else:
-            discrete = stats
+            discrete = buckets
 
-        ####   gini calc   #####
-        x = assign(df, var=variable, buckets=discrete, val='avg_target')
+        ####    gini    #####
+        x = assign(df, var=variable, buckets=discrete, val="avg_target")
+        gini = pd.DataFrame(
+            {
+                "GINI": [st.gini(df[variable], df[types.target])],
+                "GINI discrete": [st.gini(x, df[types.target])],
+            }
+        )
 
-        #####    gini    #####
-        gini = pd.DataFrame({'GINI': [st.gini(df[variable], df[types.target])],
-                            'GINI discrete': [st.gini(x, df[types.target])]})
-
-        wykres = plot(stats, variable)
+        wykres = plot(buckets, variable)
 
         # Dodanie tabelki i wykresu do raportu
         # TODO: dać tu raczej słownik, niż listę
@@ -537,39 +566,37 @@ def gen_report_objects(df: pd.DataFrame, types:ColumnTypes ) -> dict[str, list]:
 
     return report
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     # Przykład użycia
-    df = pd.DataFrame({
-        'col1': [1, 2, 3, 4, 5],
-        'col2': ['a', 'b', 'a', 'c', 'b'],
-        'col3': [1.1, 2.2, 3.3, 4.4, 5.5],
-        'col4': [1, 1, 1, 1, 1],
-        'target': [0, 1, 0, 1, 0]
-    })
+    df = pd.DataFrame(
+        {
+            "col1": [1, 2, 3, 4, 5],
+            "col2": ["a", "b", "a", "c", "b"],
+            "col3": [1.1, 2.2, 3.3, 4.4, 5.5],
+            "col4": [1, 1, 1, 1, 1],
+            "target": [0, 1, 0, 1, 0],
+        }
+    )
 
     bckt_cut_stats(
-        variable=df['col3'],
-        target=df['target'],
-        #bins=[0, 3, 6],
-        bins= 2,
+        variable=df["col3"],
+        target=df["target"],
+        # bins=[0, 3, 6],
+        bins=2,
         total=True,
-        plot=True
+        plot=True,
     )
 
     column_types = ColumnTypes(df, discrete_threshold=3)
     print(column_types.types)
     # Przykładowe dane
-    df = pd.DataFrame({
-        'value': [2, 5, 8, 15, 25]
-    })
+    df = pd.DataFrame({"value": [2, 5, 8, 15, 25]})
 
-    buckets = pd.DataFrame({
-        'od': [0, 5, 10, 20],
-        'do': [5, 10, 20, 30],
-        'fit': [0.1, 3, 1, -0.1]  
-    })
+    buckets = pd.DataFrame(
+        {"od": [0, 5, 10, 20], "do": [5, 10, 20, 30], "fit": [0.1, 3, 1, -0.1]}
+    )
 
     # Wywołanie funkcji
-    df2 = assign(df, 'value', buckets,  'fit')
+    df2 = assign(df, "value", buckets, "fit")
     print(df2)

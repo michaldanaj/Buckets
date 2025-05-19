@@ -32,7 +32,9 @@ def generate_variable_report(data: dict):
         """
 
         for element in elements:
-            if isinstance(element, pd.DataFrame):
+            if element is None:
+                continue
+            elif isinstance(element, pd.DataFrame):
                 # Jeśli element jest DataFrame, generujemy tabelę HTML
                 stats_html = element.to_html(classes="table", border=0, index=False)
                 section_html += f"""
