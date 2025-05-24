@@ -141,7 +141,7 @@ class BucketTests(unittest.TestCase):
 
         wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'])
         wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
-        wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, n=2)
+        wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2)
         pd.testing.assert_frame_equal(wyn, wyn_ref)
 		
 
@@ -157,7 +157,7 @@ class BucketTests(unittest.TestCase):
         wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(2.0, 8.0]','(0.999, 2.0]', 'TOTAL'])
         wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
 
-        wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, n=2, sort_by = 'avg_target')
+        wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2, sort_by = 'avg_target')
         pd.testing.assert_frame_equal(wyn, wyn_ref)
 
     
@@ -165,7 +165,7 @@ class BucketTests(unittest.TestCase):
         """ Test, czy poprawnie obsłużone jest wielokrotne wystąpienie tego samego kwantyla.
             Jak nie, to po prostu się wywali. Również test na puste kwantyle        
         """
-        bckt.bckt_cut_stats(self.test_df_2.x, self.test_df_2.y, n=10, sort_by = 'avg_target')
+        bckt.bckt_cut_stats(self.test_df_2.x, self.test_df_2.y, bins=10, sort_by = 'avg_target')
 
     def test_bckt_stat_wagi(self):
         """ Test wag, bez predykcji jeszcze"""
@@ -221,7 +221,7 @@ class BucketTests(unittest.TestCase):
         test = self.test_df_3
         test = test[test['x'] != 2]
         try:
-            bckt.bckt_cut_stats(test.x, test.y, n=2)
+            bckt.bckt_cut_stats(test.x, test.y, bins=2)
         except ValueError:
             self.fail("Niespodziewanie rzucony wyjątek ValueError!")
 

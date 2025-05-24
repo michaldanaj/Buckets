@@ -1,5 +1,23 @@
 import pandas as pd
 
+def guess_column_type(var:pd.Series, discrete_threshold: int = 20) -> str:
+    """
+    Funkcja do zgadywania typu kolumny na podstawie wartości.
+
+    Args:
+        var: Zmienna, dla której ma być zgadywany typ kolumny.
+
+    Returns:
+        str: Typ kolumny ('categorical', 'continuous', 'discrete').
+    """
+    if pd.api.types.is_numeric_dtype(var):
+        if var.nunique() < discrete_threshold:
+            return 'discrete'
+        else:
+            return 'continuous'
+    else:
+        return 'categorical'
+    
 class ColumnTypes:
     """
     Klasa do określania typów zmiennych w ramce danych Pandas.
@@ -65,15 +83,7 @@ class ColumnTypes:
             # Określenie typu zmiennej (dtype)
             dtype = df[col].dtype
 
-            # Określenie typu analitycznego
-            if pd.api.types.is_numeric_dtype(dtype):
-                unique_values = df[col].nunique()
-                if unique_values < self.discrete_threshold:
-                    analytical_type = 'discrete'
-                else:
-                    analytical_type = 'continuous'
-            else:
-                analytical_type = 'categorical'
+            analytical_type = guess_column_type(df[col], self.discrete_threshold)
 
             # określenie roli
             role = 'explanatory' if col != 'target' else 'target'

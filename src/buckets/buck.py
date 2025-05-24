@@ -27,7 +27,7 @@ __version__ = 0.1
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from buckets.column_types import ColumnTypes
+import buckets.column_types as ct
 import buckets.tree as tree
 import buckets.statitics as st
 
@@ -233,6 +233,17 @@ def bckt_cut_stats(
                  sortowanie będzie zgodne z wynikiem działania group_by
        ascending: czy sortować wyniki rosnąco
     """
+
+    if not pd.api.types.is_numeric_dtype(variable):
+        raise TypeError(
+            "Zmienna 'variable' musi być typu numerycznego, "
+            f"ale jest typu {variable.dtype}."
+        )
+    if not pd.api.types.is_numeric_dtype(target):
+        raise TypeError(
+            "Zmienna 'variable' musi być typu numerycznego, "
+            f"ale jest typu {target.dtype}."
+        )
 
     if weights is None:
         weights = pd.Series(np.ones(len(variable)))
@@ -461,8 +472,72 @@ def bckt_tree(
     wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
     return wyn
 
+def bckt_calc(
+    variable: pd.Series,
+    target: pd.Series,
+    pred: pd.Series | None = None,
+    weights: pd.Series | None = None,
+    bins: int | list[float] = 50,
+    total: bool = True,
+    plot: bool = False,
+    min_info: bool = False,
+    sort_by: str | None = None,
+    ascending: bool = True,
+    discrete_threshold: int = 20,
+    categorical_max_levels: int = 20,
+) -> pd.DataFrame:
 
-def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> dict[str, pd.DataFrame]:
+    ct.guess_column_type(variable)
+    analytical_type = ct.guess_column_type(variable, discrete_threshold)
+
+    if analytical_type in ["discrete", "categorical"]:
+        # print(f"Analizuję zmienną dyskretną: {column_name}")
+        # TODO: zobaczyć, jak było ogarnięte w R, żeby jednak robić statystyki zmiennej
+        # numerycznej, określonej jako dyskretna. A może i tak jest lepiej?
+        # Najpierw zmienną numeryczną klasyfikujemy jako dyskretną, żeby później stwierdzić,
+        # że jest ich za dużo i nie robić statystyk? Uspójnić to jakoś.
+        if variable.nunique() > categorical_max_levels:
+            result = pd.DataFrame({"warning": "Too many categorical levels"}, index=[0])
+        else:
+            # Wywołanie funkcji bckt_stats
+            result = bckt_stats(
+                var=variable,
+                target=target,
+                pred=pred,
+                weights=weights,    
+                total=total,
+                min_info=min_info,
+                sort_by=sort_by,
+                ascending=ascending,
+            )
+        # print(result)
+
+    elif analytical_type == "continuous":
+        # print(f"Analizuję zmienną ciągłą: {column_name}")
+        # Wywołanie funkcji bckt_cut_stats
+        result = bckt_cut_stats(
+            variable=variable,
+            target=target,
+            pred=pred,
+            weights=weights,
+            bins=bins,
+            total=total,
+            min_info=min_info,
+            sort_by=sort_by,
+            ascending=ascending,
+        )
+        # print(result)
+    else:
+        raise ValueError(f"Nieznany typ analityczny: {analytical_type}")
+
+    if plot:
+        globals()['plot'](result, title=variable.name)
+
+    return result
+
+
+def gen_buckets(df: pd.DataFrame, types: ct.ColumnTypes, 
+                categorical_max_levels: int = 20) -> dict[str, pd.DataFrame]:
     """
     Funkcja do iteracji po kolumnach ramki danych i wywoływania funkcji bckt_stats
     dla zmiennych dyskretnych oraz bckt_cut_stats dla zmiennych ciągłych.
@@ -472,17 +547,18 @@ def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> d
     Args:
         df: Ramka danych Pandas.
         types: Obiekt klasy ColumnTypes.
-        max_levels: Maksymalna liczba poziomów dla zmiennych dyskretnych.
+        categorical_max_levels: Maksymalna liczba poziomów dla zmiennych dyskretnych.
 
     Returns:
         None
     """
     results = {}
 
+    # TODO: zrobić to bez pętli
     for index, row in types.types.iterrows():
         if row["role"] == "target":
             target_col = row["column_name"]
-    assert target_col is not None, "Nie znaleziono kolumny docelowej (target)."
+    assert target_col is not None, "Nie znaleziono kolumny docelowej (target) w types."
 
     for index, row in types.types.iterrows():
         column_name = row["column_name"]
@@ -500,7 +576,7 @@ def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> d
             # numerycznej, określonej jako dyskretna. A może i tak jest lepiej?
             # Najpierw zmienną numeryczną klasyfikujemy jako dyskretną, żeby później stwierdzić,
             # że jest ich za dużo i nie robić statystyk? Uspójnić to jakoś.
-            if df[column_name].nunique() > max_levels:
+            if df[column_name].nunique() > categorical_max_levels:
                 result = pd.DataFrame({"warning": "Too many categorical levels"}, index=[0])
             else:
                 # Wywołanie funkcji bckt_stats
@@ -519,7 +595,7 @@ def gen_buckets(df: pd.DataFrame, types: ColumnTypes, max_levels: int = 20) -> d
     return results
 
 
-def gen_report_objects(df: pd.DataFrame, types: ColumnTypes, max_levels:int = 20) -> dict[str, list]:
+def gen_report_objects(df: pd.DataFrame, types: ct.ColumnTypes, max_levels:int = 20) -> dict[str, list]:
     """
     Funkcja generująca raport ze statystykami dla zmiennych w ramce danych, 
     opisanych w `types`. 
@@ -533,7 +609,7 @@ def gen_report_objects(df: pd.DataFrame, types: ColumnTypes, max_levels:int = 20
         Słownik, którego kluczem jest nazwa zmiennej, a wartością lista:
         [tabelka ze statystykami, wykres utworzony na jej podstawie].
     """
-    buckets_d = gen_buckets(df, types, max_levels=max_levels)
+    buckets_d = gen_buckets(df, types, categorical_max_levels=max_levels)
     report = {}
 
     for variable, buckets in buckets_d.items():
@@ -603,7 +679,7 @@ if __name__ == "__main__":
         plot=True,
     )
 
-    column_types = ColumnTypes(df, discrete_threshold=3)
+    column_types = ct.ColumnTypes(df, discrete_threshold=3)
     print(column_types.types)
     # Przykładowe dane
     df = pd.DataFrame({"value": [2, 5, 8, 15, 25]})
