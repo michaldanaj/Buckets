@@ -47,6 +47,68 @@ import buckets.statitics as st
 
 NA_BIN_NAME = "<NA>"
 
+def bckt_stats_over_time(
+        czas: pd.Series,
+        var: pd.Series,
+        target: pd.Series,
+        pred: pd.Series | None = None,
+        weights: pd.Series | None = None,
+) -> list[pd.DataFrame]:
+    """
+    Funkcja wyliczająca statystyki zmiennej dyskretnej w czasie.
+
+
+    Args:
+      var: zmienna dyskretna, po której nastąpi grupowanie (kolumna ramki Pandas)
+      target: zmienna celu, o wartościach 0 lub 1 (kolumna ramki Pandas)
+      pred: opcjonalna predykcja zmiennej celu (kolumna ramki Pandas)
+      total: czy dodać w ostatnim wierszu statystyki dla całej próby
+      weights: kolumna z wagami
+
+    Returns:
+      Zwraca listę z trzema, lub czterema tabelami ze statystykami:
+      - Liczności dla każdej wartości zmiennej var w przecięciu z datami, czyli zmianę liczności w czasie
+      - Rozkłady dla każdej wartości zmiennej var w ramach każdej z dat, czyli zmiana rozkładu w czasie
+      - Średnie wartości zmiennej celu dla każdej wartości zmiennej var w przecięciu z datami
+      - Średnie wartości predykcji dla każdej wartości zmiennej var w przecięciu z datami (o ile `pred` jest podane)
+    """
+    # sprawdzam braki danych w target
+    if any(target.isnull()):
+        raise ValueError("W zmiennej 'target' nie może być braków danych!")
+
+    if weights is None:
+        weights = pd.Series(np.ones(len(var)))
+        weights.index = var.index
+
+    pred_none = False
+    if pred is None:
+        pred = target
+        pred_none = True
+        pred.index = var.index
+
+    # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
+    df = pd.DataFrame({"czas": czas, "var": var, "target": target, "pred": pred, "weights": weights})
+    # konwertuję na typy pandasowe.
+    # Robię to, żeby int-y mogły mieć NaN-y
+    df = df.convert_dtypes()
+    # Załóżmy, że masz ramkę df z kolumnami: 'czas', 'var', 'weights'
+
+    # Tworzymy tabelę przestawną z sumą wag
+    pivot = df.pivot_table(
+        index='czas',
+        columns='var',
+        values='weights',
+        aggfunc='sum',
+        fill_value=0
+    )
+
+    # Dzielimy każdy wiersz przez sumę w wierszu (normalizacja do 1)
+    pivot_normalized = pivot.div(pivot.sum(axis=1), axis=0)
+
+    # Wynik:
+    return pivot_normalized
+
+
 
 def bckt_stats(
     var: pd.Series,
@@ -691,3 +753,17 @@ if __name__ == "__main__":
     # Wywołanie funkcji
     df2 = assign(df, "value", buckets, "fit")
     print(df2)
+
+    # Przykładowe dane
+    df = pd.DataFrame({
+        "czas": ["2024-01", "2024-01", "2024-01", "2024-02", "2024-02", "2024-02", "2024-03", "2024-03"],
+        "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
+        "weights": [1, 2, 1, 3, 1, 2, 2, 1]
+    })
+
+    result = bckt_stats_over_time(df['czas'],
+                                   df['var'],
+                                   target=pd.Series([0]*len(df)),
+                                   weights=df['weights'])
+    print(df)
+    print(result)
