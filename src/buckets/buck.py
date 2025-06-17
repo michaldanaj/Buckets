@@ -72,6 +72,9 @@ def bckt_stats_over_time(
       - Średnie wartości zmiennej celu dla każdej wartości zmiennej var w przecięciu z datami
       - Średnie wartości predykcji dla każdej wartości zmiennej var w przecięciu z datami (o ile `pred` jest podane)
     """
+
+    bez_pred = pred is None
+
     # sprawdzam braki danych w target
     if any(target.isnull()):
         raise ValueError("W zmiennej 'target' nie może być braków danych!")
@@ -81,7 +84,7 @@ def bckt_stats_over_time(
         weights.index = var.index
 
     pred_none = False
-    if pred is None:
+    if bez_pred:
         pred = target
         pred_none = True
         pred.index = var.index
@@ -105,8 +108,28 @@ def bckt_stats_over_time(
     # Dzielimy każdy wiersz przez sumę w wierszu (normalizacja do 1)
     pivot_normalized = pivot.div(pivot.sum(axis=1), axis=0)
 
+    df['wt'] = df['weights']*df['target']
+    pivot_target = df.pivot_table(
+        index='czas',
+        columns='var',
+        values='wt',
+        aggfunc='sum',
+        fill_value=0
+    )/pivot
+
+    pivot_pred = None
+    if not bez_pred:
+        df['wt_pred'] = df['weights']*df['pred']
+        pivot_pred = df.pivot_table(
+            index='czas',
+            columns='var',
+            values='wt_pred',
+            aggfunc='sum',
+            fill_value=0
+        )/pivot
+
     # Wynik:
-    return pivot_normalized
+    return [pivot, pivot_normalized, pivot_target, pivot_pred]
 
 
 
@@ -138,6 +161,18 @@ def bckt_stats(
                 sortowanie będzie zgodne z wynikiem działania group_by
       ascending: czy sortować wyniki rosnąco
       weights: kolumna z wagami
+
+    Returns:
+      Zwraca tabelkę pandasową z wyliczonymi agregatami dla każdej wartości. Typy są zgodne
+      z wersją Pandas 2.
+      zmiennej var. Struktura tabeli:
+      - bin [str]: wartość zmiennej var
+      - discrete: wartość zmiennej var
+      - od: dolna granica przedziału
+      - srodek: środek przedziału
+      - do: górna granica przedziału
+      - mean: średnia wartość zmiennej target
+      - median: mediana wartości zmiennej target
     """
 
 
@@ -162,7 +197,7 @@ def bckt_stats(
     df = df.convert_dtypes()
 
     # TODO: jeszcze to ogarnąć, również w kontekście innych funkcji
-    df["bin"] = var.astype(str)
+    df["bin"] = var.astype("string")
     nulle = var.isnull()
     df.loc[nulle, "bin"] = NA_BIN_NAME
 
@@ -732,7 +767,7 @@ if __name__ == "__main__":
         }
     )
 
-    bckt_cut_stats(
+    wyn = bckt_cut_stats(
         variable=df["col3"],
         target=df["target"],
         # bins=[0, 3, 6],
@@ -740,6 +775,7 @@ if __name__ == "__main__":
         total=True,
         plot=True,
     )
+    print(wyn)
 
     column_types = ct.ColumnTypes(df, discrete_threshold=3)
     print(column_types.types)

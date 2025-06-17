@@ -2,8 +2,10 @@ import unittest
 import pandas as pd
 import numpy as np
 #from pandas.util.testing import assert_frame_equal # <-- for testing dataframes
-import buckets as bckt
+import buckets.buck as bckt
 #target = __import__("buckets.py")
+pd.set_option('display.max_columns', None)  # Pokazuje wszystkie kolumny
+pd.set_option('display.max_rows', None)     # Pokazuje wszystkie wiersze
 
 class BucketTests(unittest.TestCase):
 
@@ -21,12 +23,12 @@ class BucketTests(unittest.TestCase):
                               })
 
     #zmienna x numeryczna, dyskretna, z nan
-    test_df_3 = pd.DataFrame({'x':[1,1,1,8,2,2,3,np.nan],
+    test_df_3 = pd.DataFrame({'x':[1,1,1,8,2,2,3,pd.NA],
                               'y':[1,1,0,0,1,0,1,1]
                               })
 
 
-    def df_from_array(self, x, index):
+    def df_from_array(self, x, index, discr_type= 'object'):
         """
             Funkcja tworzy DataFrame'a z listy array-ów jako rekordy. Ustawia nazwy 
             zmiennych oraz ich typy. Nakłada przekazany indeks.
@@ -35,62 +37,67 @@ class BucketTests(unittest.TestCase):
             columns = ['nr', 'bin', 'discrete', 'od', 'srodek', 'do', 'mean', 'median',
                 'sum_target', 'n_obs', 'avg_target', 'pct_obs']
                 )
-        wyn=wyn.astype({'nr':            'int64',
+        print("--------------------------------")
+        wyn = wyn.convert_dtypes()
+        print(wyn)
+        print(wyn.dtypes)
+        wyn=wyn.astype({'nr':            'Int64',
                 'bin':           'object',
-                'discrete':      'object',
+                'discrete':      discr_type,
                 'od':            'float64',
                 'srodek':        'float64',
                 'do':            'float64',
                 'mean':          'float64',
                 'median':        'float64',
-                'sum_target':    'float64',
-                'n_obs':         'float64',
+                'sum_target':    'Int64',
+                'n_obs':         'Int64',
                 'avg_target':    'float64',
                 'pct_obs':       'float64'})        
-        return wyn
+        return wyn.convert_dtypes()
 
     def test_bckt_stat_simple_cat(self):
         """ Test zmiennej kategorycznej"""
         wyn_array = np.array(
-            [(1, 'a', 'a', np.nan, np.nan, np.nan, np.nan, np.nan, 2., 3., 0.66666667, 0.42857143),
-            (2, 'b', 'b', np.nan, np.nan, np.nan, np.nan, np.nan, 1., 2., 0.5       , 0.28571429),
-            (3, 'c', 'c', np.nan, np.nan, np.nan, np.nan, np.nan, 1., 1., 1.        , 0.14285714),
-            (4, 'd', 'd', np.nan, np.nan, np.nan, np.nan, np.nan, 0., 1., 0.        , 0.14285714),
-            (5, 'TOTAL', 'TOTAL', np.nan, np.nan, np.nan, np.nan, np.nan, 4, 7, 0.57142857, 1.        )]
+            [(1, 'a', 'a', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 2, 3, 0.66666667, 0.42857143),
+            (2, 'b', 'b', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.28571429),
+            (3, 'c', 'c', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.14285714),
+            (4, 'd', 'd', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0.        , 0.14285714),
+            (5, 'TOTAL', 'TOTAL', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 4, 7, 0.57142857, 1.        )]
             )
         wyn_ref = self.df_from_array(wyn_array, index = ['a','b','c','d','TOTAL'])
         
+        
         wyn = bckt.bckt_stats(self.test_df_1.x, self.test_df_1.y)
-        pd.testing.assert_frame_equal(wyn, wyn_ref)
+        pd.testing.assert_frame_equal(wyn.convert_dtypes(), wyn_ref)
 
 
     def test_bckt_stat_simple_discr(self):
         """ Test zmiennej dyskretnej, numerycznej"""
         wyn_array = np.array(
             [
-                (1, '1', 1, np.nan, np.nan, np.nan, np.nan, np.nan, 2, 3, 0.66666667, 0.42857143),
-                (2, '2', 2, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 2, 0.5       , 0.28571429),
-                (3, '3', 3, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 1, 1.        , 0.14285714),
-                (4, '8', 8, np.nan, np.nan, np.nan, np.nan, np.nan, 0, 1, 0.        , 0.14285714),
-                (5, 'TOTAL', np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 4, 7, 0.57142857, 1.        )]
+                (1, '1', 1, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 2, 3, 0.66666667, 0.42857143),
+                (2, '2', 2, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.28571429),
+                (3, '3', 3, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.14285714),
+                (4, '8', 8, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0.        , 0.14285714),
+                (5, 'TOTAL', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 4, 7, 0.57142857, 1.        )]
             )
-        wyn_ref = self.df_from_array(wyn_array, index = [ '1','2','3','8','TOTAL'])
-        wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
+        wyn_ref = self.df_from_array(wyn_array, index = [ '1','2','3','8','TOTAL'], 
+                                     discr_type='Int64')
 
         wyn = bckt.bckt_stats(self.test_df_2.x, self.test_df_2.y)
 
-        pd.testing.assert_frame_equal(wyn, wyn_ref)
+        pd.testing.assert_frame_equal(wyn.convert_dtypes(), wyn_ref)
 
 
     def test_bckt_stat_sort_avg_target(self):
         """ Test sortowania po zmiennej avg_target"""
         wyn_array = np.array(
-            [(1, '<NA>',   np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 1, 1.        , 0.125),
-            (2, '8.0',        8.0, np.nan, np.nan, np.nan, np.nan, np.nan, 0, 1, 0.        , 0.125),
-            (3, '2.0',        2.0, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 2, 0.5       , 0.25 ),
-            (4, '1.0',        1.0, np.nan, np.nan, np.nan, np.nan, np.nan, 2, 3, 0.66666667, 0.375),
-            (5, '3.0',        3.0, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 1, 1.        , 0.125),
-            (6, 'TOTAL',   np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 5, 8, 0.625     , 1.   )]
+            [(1, '<NA>',   pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.125),
+            (2, '8.0',        8.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0.        , 0.125),
+            (3, '2.0',        2.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.25 ),
+            (4, '1.0',        1.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 2, 3, 0.66666667, 0.375),
+            (5, '3.0',        3.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.125),
+            (6, 'TOTAL',   pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 5, 8, 0.625     , 1.   )]
             )
         wyn_ref = self.df_from_array(wyn_array, index = ['<NA>', '8.0','2.0','1.0','3.0','TOTAL'])
         wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
@@ -105,11 +112,11 @@ class BucketTests(unittest.TestCase):
         """ Test sortowania po zmiennej avg_target malejąco"""
         wyn_array = np.array(
             [                
-                (1, '3', 3, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 1, 1.        , 0.14285714),
-                (2, '1', 1, np.nan, np.nan, np.nan, np.nan, np.nan, 2, 3, 0.66666667, 0.42857143),
-                (3, '2', 2, np.nan, np.nan, np.nan, np.nan, np.nan, 1, 2, 0.5       , 0.28571429),
-                (4, '8', 8, np.nan, np.nan, np.nan, np.nan, np.nan, 0, 1, 0.        , 0.14285714),                
-                (5, 'TOTAL', np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, 4, 7, 0.57142857, 1.)                
+                (1, '3', 3, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.14285714),
+                (2, '1', 1, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 2, 3, 0.66666667, 0.42857143),
+                (3, '2', 2, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.28571429),
+                (4, '8', 8, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0.        , 0.14285714),                
+                (5, 'TOTAL', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 4, 7, 0.57142857, 1.)                
             ]
             )
         wyn_ref = self.df_from_array(wyn_array, index = ['3','1','2','8','TOTAL'])
@@ -124,7 +131,6 @@ class BucketTests(unittest.TestCase):
         """
         test = self.test_df_1
         test = test[test['x']!='b']
-        print(test)
         try:
             bckt.bckt_stats(test.x, test.y)
         except TypeError:
@@ -133,32 +139,44 @@ class BucketTests(unittest.TestCase):
     def test_bckt_cut_stat_simple(self):
         """ Test statystyk dla zmiennej ciągłej"""
         wyn_array = np.array(
-                [(1,          '<NA>', np.nan, np.nan, np.nan,     np.nan,     np.nan,   np.nan,   1.,     1.,    1., 0.125),
-                ( 2,  '(0.999, 2.0]', np.nan,     1.,    1.5,         2.,        1.4,        1,   3.,     5.,   0.6, 0.625),
-                ( 3,    '(2.0, 8.0]', np.nan,     2.,      5,         8.,        5.5,      5.5,   1.,     2.,   0.5, 0.25 ),                
-                ( 4,         'TOTAL', np.nan, np.nan, np.nan,     np.nan, 2.57142857,       2.,   5.,     8., 0.625, 1.   )] 
+                [(1,          '<NA>', pd.NA, pd.NA, pd.NA,     pd.NA,     pd.NA,   pd.NA,   1,     1,    1., 0.125),
+                ( 2,  '(0.999, 2.0]', pd.NA,     1.,    1.5,         2.,        1.4,        1,   3,     5,   0.6, 0.625),
+                ( 3,    '(2.0, 8.0]', pd.NA,     2.,      5,         8.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),                
+                ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
             )
 
-        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'])
-        wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
+        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'], discr_type='Int64')
         wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2)
-        pd.testing.assert_frame_equal(wyn, wyn_ref)
+        print('ref:')
+        print(wyn_ref)
+        print('wyn:')
+        print(wyn)
+        print(wyn.dtypes)
+        pd.testing.assert_frame_equal(wyn_ref.convert_dtypes(), wyn.convert_dtypes(), check_dtype=False)
 		
 
     def test_bckt_cut_stat_sort_avg_target_desc(self):
         """ Test sortowania po zmiennej avg_target malejąco, dla zmiennej ciągłej"""
         wyn_array = np.array(
-                [(1,          '<NA>', np.nan, np.nan, np.nan,     np.nan,     np.nan,   np.nan,   1,     1,    1., 0.125),
-                ( 2,    '(2.0, 8.0]', np.nan,     1.,    1.5,         2.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),
-                ( 3,  '(0.999, 2.0]', np.nan,     2.,     5.,         8.,        1.4,        1,   3,     5,   0.6, 0.625),
-                ( 4,         'TOTAL', np.nan, np.nan, np.nan,     np.nan, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
+                [(1,          '<NA>', pd.NA, pd.NA, pd.NA,     pd.NA,     pd.NA,   pd.NA,   1,     1,    1., 0.125),
+                ( 2,    '(2.0, 8.0]', pd.NA,     1.,    1.5,         2.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),
+                ( 3,  '(0.999, 2.0]', pd.NA,     2.,     5.,         8.,        1.4,        1,   3,     5,   0.6, 0.625),
+                ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
             )
 
-        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(2.0, 8.0]','(0.999, 2.0]', 'TOTAL'])
-        wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
-
         wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2, sort_by = 'avg_target')
-        pd.testing.assert_frame_equal(wyn, wyn_ref)
+        print(wyn)
+        print(wyn.dtypes)
+
+        print("XXXXXXXXXXXXXXXXXXXXX")
+        wyn_ref = self.df_from_array(wyn_array, discr_type='float64',
+                                     index = ['<NA>','(2.0, 8.0]','(0.999, 2.0]', 'TOTAL'])
+        print(wyn_ref)
+        print(wyn_ref.dtypes)
+        print(wyn)
+        print(wyn.dtypes)
+
+        pd.testing.assert_frame_equal(wyn.convert_dtypes(), wyn_ref.convert_dtypes())
 
     
     def test_bckt_cut_stat_duplicates(self):
@@ -170,11 +188,11 @@ class BucketTests(unittest.TestCase):
     def test_bckt_stat_wagi(self):
         """ Test wag, bez predykcji jeszcze"""
         wyn_array = np.array(
-            [(1, 'a', 'a', np.nan, np.nan, np.nan, np.nan, np.nan, 3., 4., 0.75, 0.5),
-            (2, 'b', 'b', np.nan, np.nan, np.nan, np.nan, np.nan, 1., 2., 0.5       , 0.25),
-            (3, 'c', 'c', np.nan, np.nan, np.nan, np.nan, np.nan, 1., 1., 1.        , 0.125),
-            (4, 'd', 'd', np.nan, np.nan, np.nan, np.nan, np.nan, 0., 1., 0.        , 0.125),
-            (5, 'TOTAL', 'TOTAL', np.nan, np.nan, np.nan, np.nan, np.nan, 5, 8, 0.625, 1.        )]
+            [(1, 'a', 'a', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 3., 4., 0.75, 0.5),
+            (2, 'b', 'b', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1., 2., 0.5       , 0.25),
+            (3, 'c', 'c', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1., 1., 1.        , 0.125),
+            (4, 'd', 'd', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0., 1., 0.        , 0.125),
+            (5, 'TOTAL', 'TOTAL', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 5, 8, 0.625, 1.        )]
             )
         wyn_ref = self.df_from_array(wyn_array, index = ['a','b','c','d','TOTAL'])
         
@@ -184,11 +202,11 @@ class BucketTests(unittest.TestCase):
     def test_bckt_stat_min_info(self):
         """ min_info"""
         wyn_array = np.array(
-            [(1, 'a', 'a', np.nan, np.nan, np.nan, np.nan, np.nan, 3., 4., 0.75, 0.5),
-            (2, 'b', 'b', np.nan, np.nan, np.nan, np.nan, np.nan, 1., 2., 0.5       , 0.25),
-            (3, 'c', 'c', np.nan, np.nan, np.nan, np.nan, np.nan, 1., 1., 1.        , 0.125),
-            (4, 'd', 'd', np.nan, np.nan, np.nan, np.nan, np.nan, 0., 1., 0.        , 0.125),
-            (5, 'TOTAL', 'TOTAL', np.nan, np.nan, np.nan, np.nan, np.nan, 5, 8, 0.625, 1.        )]
+            [(1, 'a', 'a', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 3, 4, 0.75, 0.5),
+            (2, 'b', 'b', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.25),
+            (3, 'c', 'c', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1        , 0.125),
+            (4, 'd', 'd', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0        , 0.125),
+            (5, 'TOTAL', 'TOTAL', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 5, 8, 0.625, 1.        )]
             )
         wyn_ref = self.df_from_array(wyn_array, index = wyn_array[:,1])
         
@@ -201,11 +219,11 @@ class BucketTests(unittest.TestCase):
         wyn = bckt.bckt_stats(self.test_df_1.x, self.test_df_1.y, weights=self.test_df_1.w)
         odczyt = pd.DataFrame.from_dict(
             {
-            'a': {'nr': 1, 'bin': 'a', 'discrete': 'a', 'od': np.nan, 'srodek': np.nan, 'do': np.nan, 'mean': np.nan, 'median': np.nan, 'sum_target': 3.0, 'n_obs': 4.0, 'avg_target': 0.75, 'pct_obs': 0.5}, 
-            'b': {'nr': 2, 'bin': 'b', 'discrete': 'b', 'od': np.nan, 'srodek': np.nan, 'do': np.nan, 'mean': np.nan, 'median': np.nan, 'sum_target': 1.0, 'n_obs': 2.0, 'avg_target': 0.5, 'pct_obs': 0.25},
-            'c': {'nr': 3, 'bin': 'c', 'discrete': 'c', 'od': np.nan, 'srodek': np.nan, 'do': np.nan, 'mean': np.nan, 'median': np.nan, 'sum_target': 1.0, 'n_obs': 1.0, 'avg_target': 1.0, 'pct_obs': 0.125},
-            'd': {'nr': 4, 'bin': 'd', 'discrete': 'd', 'od': np.nan, 'srodek': np.nan, 'do': np.nan, 'mean': np.nan, 'median': np.nan, 'sum_target': 0.0, 'n_obs': 1.0, 'avg_target': 0.0, 'pct_obs': 0.125},
-            'TOTAL': {'nr': 5, 'bin': 'TOTAL', 'discrete': 'TOTAL', 'od': np.nan, 'srodek': np.nan, 'do': np.nan, 'mean': np.nan, 'median': np.nan, 'sum_target': 5.0, 'n_obs': 8.0, 'avg_target': 0.625, 'pct_obs': 1.0}},
+            'a': {'nr': 1, 'bin': 'a', 'discrete': 'a', 'od': pd.NA, 'srodek': pd.NA, 'do': pd.NA, 'mean': pd.NA, 'median': pd.NA, 'sum_target': 3.0, 'n_obs': 4.0, 'avg_target': 0.75, 'pct_obs': 0.5}, 
+            'b': {'nr': 2, 'bin': 'b', 'discrete': 'b', 'od': pd.NA, 'srodek': pd.NA, 'do': pd.NA, 'mean': pd.NA, 'median': pd.NA, 'sum_target': 1.0, 'n_obs': 2.0, 'avg_target': 0.5, 'pct_obs': 0.25},
+            'c': {'nr': 3, 'bin': 'c', 'discrete': 'c', 'od': pd.NA, 'srodek': pd.NA, 'do': pd.NA, 'mean': pd.NA, 'median': pd.NA, 'sum_target': 1.0, 'n_obs': 1.0, 'avg_target': 1.0, 'pct_obs': 0.125},
+            'd': {'nr': 4, 'bin': 'd', 'discrete': 'd', 'od': pd.NA, 'srodek': pd.NA, 'do': pd.NA, 'mean': pd.NA, 'median': pd.NA, 'sum_target': 0.0, 'n_obs': 1.0, 'avg_target': 0.0, 'pct_obs': 0.125},
+            'TOTAL': {'nr': 5, 'bin': 'TOTAL', 'discrete': 'TOTAL', 'od': pd.NA, 'srodek': pd.NA, 'do': pd.NA, 'mean': pd.NA, 'median': pd.NA, 'sum_target': 5.0, 'n_obs': 8.0, 'avg_target': 0.625, 'pct_obs': 1.0}},
             orient='index'
         )
         print(wyn.to_dict(orient='index') )
@@ -225,6 +243,67 @@ class BucketTests(unittest.TestCase):
         except ValueError:
             self.fail("Niespodziewanie rzucony wyjątek ValueError!")
 
-if __name__ == '__main__':
-    unittest.main()  
+    def test_bckt_stats_over_time_basic(self):
+        # Przygotowanie przykładowych danych
+        df = pd.DataFrame({
+            "czas": ["2024-01", "2024-01", "2024-01", "2024-02", "2024-02", "2024-02", "2024-03", "2024-03"],
+            "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
+            "weights": [1, 2, 1, 3, 1, 2, 2, 1]
+        })
+
+        # Oczekiwany wynik
+        expected = pd.DataFrame(
+            {
+                "A": [1/2, 1/2, 2/3],
+                "B": [1/2, 1/6, 0.0],
+                "C": [0.0, 1/3, 1/3]
+            },
+            index=["2024-01", "2024-02", "2024-03"]
+        )
+        expected.index.name = "czas"
+        expected.columns.name = "var"
+
+        # Wywołanie funkcji
+        result = bckt.bckt_stats_over_time(
+            czas=df["czas"],
+            var=df["var"],
+            target=pd.Series([0]*len(df)),  # target nie jest używany w tej funkcji
+            weights=df["weights"]
+        )
+
+        # Porównanie wyników
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
+
+    def test_bckt_stats_over_time_basic_bez_wag(self):
+        # Przygotowanie przykładowych danych
+        df = pd.DataFrame({
+            "czas": ["2024-01", "2024-01", "2024-01", "2024-02", "2024-02", "2024-02", "2024-03", "2024-03"],
+            "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
+        })
+
+        # Oczekiwany wynik
+        expected = pd.DataFrame(
+            {
+                "A": [2/3, 1/3, 1/3],
+                "B": [1/3, 1/3, 0.0],
+                "C": [0.0, 1/3, 1/3]
+            },
+            index=["2024-01", "2024-02", "2024-03"]
+        )
+        expected.index.name = "czas"
+        expected.columns.name = "var"
+
+        # Wywołanie funkcji
+        result = bckt.bckt_stats_over_time(
+            czas=df["czas"],
+            var=df["var"],
+            target=pd.Series([0]*len(df)),  # target nie jest używany w tej funkcji
+            weights=df["weights"]
+        )
+
+        # Porównanie wyników
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
+
+    if __name__ == '__main__':
+        unittest.main()  
      
