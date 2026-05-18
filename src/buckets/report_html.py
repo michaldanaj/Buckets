@@ -58,7 +58,7 @@ def generate_variable_report(data: dict):
                 <img src="data:image/png;base64,{image_base64}" alt="Wykres dla {column}">
                 """
 
-        section_html += "</div>"
+        section_html += "</div><hr>"
         sections.append(section_html)
 
         gini = round(elements[0].iloc[0, 1] * 100, 1)

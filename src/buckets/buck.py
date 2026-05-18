@@ -781,10 +781,12 @@ def gen_report_objects(
             time_series = df[types.time_col]
             if pd.api.types.is_datetime64_any_dtype(time_series):
                 time_series = time_series.dt.to_period("M")
-            gini_ot          = st.gini(x_orig, df[types.target], by=time_series)
-            gini_discrete_ot = st.gini(x,      df[types.target], by=time_series)
-            gini_over_time   = pd.DataFrame({"GINI": gini_ot, "GINI discrete": gini_discrete_ot}).reset_index()
-            wykres_gini_ot   = plot_gini_over_time(gini_over_time, variable)
+            gini_ot = st.gini(x_orig, df[types.target], by=time_series)
+            gini_discrete_ot = st.gini(x, df[types.target], by=time_series)
+            gini_over_time = pd.DataFrame(
+                {"GINI": gini_ot, "GINI discrete": gini_discrete_ot}
+            ).reset_index()
+            wykres_gini_ot = plot_gini_over_time(gini_over_time, variable)
         else:
             gini_over_time = None
             wykres_gini_ot = None
