@@ -1,6 +1,21 @@
 import pandas as pd
+from enum import StrEnum
 
-def guess_column_type(var:pd.Series, discrete_threshold: int = 20) -> str:
+
+class Role(StrEnum):
+    EXPLANATORY = "explanatory"
+    TARGET = "target"
+    MAIN_TIME_COL = "main_time_col"
+    SKIPPED = "skipped"
+
+
+class AnalyticalType(StrEnum):
+    DISCRETE = "discrete"
+    CONTINUOUS = "continuous"
+    CATEGORICAL = "categorical"
+
+
+def guess_column_type(var: pd.Series, discrete_threshold: int = 20) -> AnalyticalType:
     """
     Funkcja do zgadywania typu kolumny na podstawie wartości.
 
@@ -8,16 +23,17 @@ def guess_column_type(var:pd.Series, discrete_threshold: int = 20) -> str:
         var: Zmienna, dla której ma być zgadywany typ kolumny.
 
     Returns:
-        str: Typ kolumny ('categorical', 'continuous', 'discrete').
+        AnalyticalType: Typ kolumny.
     """
     if pd.api.types.is_numeric_dtype(var):
         if var.nunique() < discrete_threshold:
-            return 'discrete'
+            return AnalyticalType.DISCRETE
         else:
-            return 'continuous'
+            return AnalyticalType.CONTINUOUS
     else:
-        return 'categorical'
-    
+        return AnalyticalType.CATEGORICAL
+
+
 class ColumnTypes:
     """
     Klasa do określania typów zmiennych w ramce danych Pandas.
@@ -30,44 +46,64 @@ class ColumnTypes:
     @property
     def target(self) -> str:
         """
-        Funkcja zwracająca nazwę kolumny docelowej.
-
-        Args:
-            value: Nazwa kolumny docelowej.
+        Zwraca nazwę kolumny docelowej.
 
         Returns:
             str: Nazwa kolumny docelowej.
         """
-        return self.types.loc[self.types['role'] == 'target', 'column_name'].values[0]
+        return self.types.loc[self.types["role"] == Role.TARGET, "column_name"].values[
+            0
+        ]
 
     @target.setter
-    def target(self, value: str = 'target'):
+    def target(self, value: str = "target"):
         """
-        Funkcja do ustawiania nazwy kolumny docelowej.
+        Ustawia nazwę kolumny docelowej.
 
         Args:
             value: Nazwa kolumny docelowej.
         """
-        self.types.loc[self.types['role'] == 'target', 'column_name'] = value 
+        self.types.loc[self.types["role"] == Role.TARGET, "column_name"] = value
 
-    
+    @property
+    def time_col(self) -> str | None:
+        """
+        Zwraca nazwę głównej kolumny czasowej lub None, jeśli nie ustawiono.
+
+        Returns:
+            str | None: Nazwa kolumny z rolą MAIN_TIME_COL.
+        """
+        result = self.types.loc[self.types["role"] == Role.MAIN_TIME_COL, "column_name"]
+        return result.values[0] if len(result) else None
+
+    @time_col.setter
+    def time_col(self, value: str):
+        """
+        Ustawia podaną kolumnę jako główną kolumnę czasową.
+
+        Args:
+            value: Nazwa kolumny, która ma otrzymać rolę MAIN_TIME_COL.
+        """
+        self.types.loc[self.types["role"] == Role.MAIN_TIME_COL, "role"] = Role.SKIPPED
+        self.types.loc[self.types["column_name"] == value, "role"] = Role.MAIN_TIME_COL
+
     def set(self, colnames: list[str], analytical_type: str):
         """
-        Funkcja do ustawiania typu analitycznego dla określonych kolumn.
+        Ustawia typ analityczny dla podanych kolumn.
 
         Args:
             colnames: Lista nazw kolumn.
             analytical_type: Typ analityczny do ustawienia.
         """
-        if type(colnames) == str:
+        if isinstance(colnames, str):
             colnames = [colnames]
 
         for col in colnames:
-            self.types.loc[self.types['column_name'] == col, 'role'] = analytical_type
+            self.types.loc[self.types["column_name"] == col, "role"] = analytical_type
 
     def determine_column_types(self, df) -> pd.DataFrame:
         """
-        Funkcja określająca typ zmiennej (dtype) oraz typ analityczny dla każdej kolumny w ramce danych.
+        Określa typ zmiennej (dtype) oraz typ analityczny dla każdej kolumny w ramce danych.
 
         Args:
             df: Ramka danych Pandas.
@@ -75,32 +111,27 @@ class ColumnTypes:
                                 jest uznawana za dyskretną.
 
         Returns:
-            DataFrame z kolumnami: 'column_name', 'dtype', 'analytical_type'.
+            DataFrame z kolumnami: 'column_name', 'dtype', 'analytical_type', 'role'.
         """
         results = []
 
         for col in df.columns:
-            # Określenie typu zmiennej (dtype)
             dtype = df[col].dtype
-
             analytical_type = guess_column_type(df[col], self.discrete_threshold)
 
-            # określenie roli
-            role = 'explanatory' if col != 'target' else 'target'
-            # jeśli zaczyan się na id, to uznajemy że jest to zmienna identyfikująca i jej nie analizujemy
-            if col.startswith('id'):
-                role = 'skipped'
-            # jeśli zawiera słowo 'date', to uznajemy że jest to zmienna czasowa i jej nie analizujemy
-            elif 'date' in col.lower():
-                role = 'skipped'
+            role = Role.EXPLANATORY if col != "target" else Role.TARGET
+            if col.startswith("id"):
+                role = Role.SKIPPED
+            elif "date" in col.lower():
+                role = Role.SKIPPED
 
-            # Dodanie wyników do listy
-            results.append({
-                'column_name': col,
-                'dtype': dtype,
-                'analytical_type': analytical_type,
-                'role': role,
-            })
+            results.append(
+                {
+                    "column_name": col,
+                    "dtype": dtype,
+                    "analytical_type": analytical_type,
+                    "role": role,
+                }
+            )
 
-        # Konwersja wyników do DataFrame
         return pd.DataFrame(results, index=df.columns)
