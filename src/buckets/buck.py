@@ -482,7 +482,9 @@ def plot(bucket, title=None):
 
     # wielkość punktu
     # size = np.sqrt(bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*50
-    bucket["size"] = ((bucket["n_obs"] / (bucket["n_obs"].sum() / bucket.shape[0])) * 25).astype(float)
+    bucket["size"] = (
+        (bucket["n_obs"] / (bucket["n_obs"].sum() / bucket.shape[0])) * 25
+    ).astype(float)
 
     # Rysowanie scatter plotu z wielkością kropek odzwierciedlającą 'n_obs'
     bucket.plot.scatter(
@@ -503,6 +505,27 @@ def plot(bucket, title=None):
     return fig  # Zwracanie obiektu Figure
 
 
+def plot_gini_over_time(gini_over_time: pd.DataFrame, title=None):
+    labels = gini_over_time["by"].astype(str)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+    fig.suptitle(title)
+
+    ax1.plot(labels, gini_over_time["GINI"] * 100, marker="o")
+    ax1.set_title("GINI")
+    ax1.set_xlabel("Miesiąc")
+    ax1.set_ylabel("GINI (%)")
+    ax1.tick_params(axis="x", rotation=45)
+
+    ax2.plot(labels, gini_over_time["GINI discrete"] * 100, marker="o")
+    ax2.set_title("GINI discrete")
+    ax2.set_xlabel("Miesiąc")
+    ax2.set_ylabel("GINI (%)")
+    ax2.tick_params(axis="x", rotation=45)
+
+    fig.tight_layout()
+    return fig
+
+
 def assign(df, var, buckets, val) -> pd.Series:
     buckets = buckets[buckets.index != "TOTAL"]
     # print('1')
@@ -512,6 +535,7 @@ def assign(df, var, buckets, val) -> pd.Series:
     buckets_continuous = buckets[~buckets["od"].isna()]
     buckets_discrete = buckets[buckets["od"].isna()]
 
+    # TODO: obsłużyć przypadek gdy buckets zawiera jednocześnie wiersze continuous i discrete (union)
     if buckets_continuous.shape[0] > 0:
         # Określamy granice przedziałów
         bins = np.unique(np.sort(buckets_continuous[["od", "do"]].values.flatten()))
@@ -534,9 +558,10 @@ def assign(df, var, buckets, val) -> pd.Series:
     elif buckets_discrete.shape[0] > 0:
         # Przypisanie wartości z kolumny 'val' w buckets do zmiennej df[var]
         # dla wartości dyskretnych
-        bins = pd.Series(buckets_discrete[val])
-        bins.index = buckets_discrete["discrete"]
-        wyn = bins[df[var]]
+        bins = pd.Series(
+            buckets_discrete[val].values, index=buckets_discrete["discrete"]
+        )
+        wyn = df[var].map(bins)
     # print('3')
     # print(wyn)
     return wyn
@@ -667,7 +692,7 @@ def gen_buckets(
         analytical_type = row["analytical_type"]
         role = row["role"]
 
-        if role in ["skipped", "target"]:
+        if role in ["skipped", "target", "main_time_col"]:
             continue
 
         # jeśli zbyt dużo kategrycznych wartości
@@ -751,11 +776,27 @@ def gen_report_objects(
             }
         )
 
+        ####    gini over time   #####
+        if types.time_col is not None:
+            time_series = df[types.time_col]
+            if pd.api.types.is_datetime64_any_dtype(time_series):
+                time_series = time_series.dt.to_period("M")
+            gini_ot          = st.gini(x_orig, df[types.target], by=time_series)
+            gini_discrete_ot = st.gini(x,      df[types.target], by=time_series)
+            gini_over_time   = pd.DataFrame({"GINI": gini_ot, "GINI discrete": gini_discrete_ot}).reset_index()
+            wykres_gini_ot   = plot_gini_over_time(gini_over_time, variable)
+        else:
+            gini_over_time = None
+            wykres_gini_ot = None
+
         wykres = plot(buckets, variable)
 
         # Dodanie tabelki i wykresu do raportu
-        # TODO: dać tu raczej słownik, niż listę
-        report[variable] = [gini, discrete, wykres]
+        # TODO: raport powinien być klasą (np. VariableReport), do której dodaje się elementy
+        #       metodą .add(element). Klasa powinna weryfikować typ każdego elementu
+        #       (pd.DataFrame lub matplotlib.Figure) i rzucać wyjątek przy niepoprawnym typie,
+        #       zamiast cicho produkować błąd dopiero w report_html.
+        report[variable] = [gini, gini_over_time, wykres_gini_ot, discrete, wykres]
 
     return report
 
