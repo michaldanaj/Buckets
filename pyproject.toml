@@ -44,6 +44,7 @@ pythonpath = [
 [dependency-groups]
 dev = [
     "ipykernel>=6.16.2",
+    "pandas-stubs>=1.2.0.62",
     "pytest>=7.4.4",
 ]
 
