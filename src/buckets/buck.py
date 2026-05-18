@@ -485,7 +485,7 @@ def plot(bucket, title=None):
     bucket.plot.scatter(
         x=x_var,
         y="avg_target",
-        s=size,  # Skalowanie wielkości kropek
+        s=size.to_numpy(dtype=float),
         alpha=0.5,
         legend=True,
         label="target",
