@@ -47,12 +47,13 @@ import buckets.statitics as st
 
 NA_BIN_NAME = "<NA>"
 
+
 def bckt_stats_over_time(
-        czas: pd.Series,
-        var: pd.Series,
-        target: pd.Series,
-        pred: pd.Series | None = None,
-        weights: pd.Series | None = None,
+    czas: pd.Series,
+    var: pd.Series,
+    target: pd.Series,
+    pred: pd.Series | None = None,
+    weights: pd.Series | None = None,
 ) -> list[pd.DataFrame]:
     """
     Funkcja wyliczająca statystyki zmiennej dyskretnej w czasie.
@@ -90,7 +91,9 @@ def bckt_stats_over_time(
         pred.index = var.index
 
     # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
-    df = pd.DataFrame({"czas": czas, "var": var, "target": target, "pred": pred, "weights": weights})
+    df = pd.DataFrame(
+        {"czas": czas, "var": var, "target": target, "pred": pred, "weights": weights}
+    )
     # konwertuję na typy pandasowe.
     # Robię to, żeby int-y mogły mieć NaN-y
     df = df.convert_dtypes()
@@ -98,39 +101,36 @@ def bckt_stats_over_time(
 
     # Tworzymy tabelę przestawną z sumą wag
     pivot = df.pivot_table(
-        index='czas',
-        columns='var',
-        values='weights',
-        aggfunc='sum',
-        fill_value=0
+        index="czas", columns="var", values="weights", aggfunc="sum", fill_value=0
     )
 
     # Dzielimy każdy wiersz przez sumę w wierszu (normalizacja do 1)
     pivot_normalized = pivot.div(pivot.sum(axis=1), axis=0)
 
-    df['wt'] = df['weights']*df['target']
-    pivot_target = df.pivot_table(
-        index='czas',
-        columns='var',
-        values='wt',
-        aggfunc='sum',
-        fill_value=0
-    )/pivot
+    df["wt"] = df["weights"] * df["target"]
+    pivot_target = (
+        df.pivot_table(
+            index="czas", columns="var", values="wt", aggfunc="sum", fill_value=0
+        )
+        / pivot
+    )
 
     pivot_pred = None
     if not bez_pred:
-        df['wt_pred'] = df['weights']*df['pred']
-        pivot_pred = df.pivot_table(
-            index='czas',
-            columns='var',
-            values='wt_pred',
-            aggfunc='sum',
-            fill_value=0
-        )/pivot
+        df["wt_pred"] = df["weights"] * df["pred"]
+        pivot_pred = (
+            df.pivot_table(
+                index="czas",
+                columns="var",
+                values="wt_pred",
+                aggfunc="sum",
+                fill_value=0,
+            )
+            / pivot
+        )
 
     # Wynik:
     return [pivot, pivot_normalized, pivot_target, pivot_pred]
-
 
 
 def bckt_stats(
@@ -174,7 +174,6 @@ def bckt_stats(
       - mean: średnia wartość zmiennej target
       - median: mediana wartości zmiennej target
     """
-
 
     # sprawdzam braki danych w target
     if any(target.isnull()):
@@ -241,11 +240,13 @@ def bckt_stats(
     pom = wyn.index.to_series()
     if pd.api.types.is_numeric_dtype(var):
         # Zamiana int na Int, bo w tabelce mam NaN dla Totala
-        #TODO: zmienić to
-        if df['var'].dtype == "nic":
-            pom = pd.to_numeric(pom, errors="coerce").astype("Int"+df['var'].dtype[4:])
+        # TODO: zmienić to
+        if df["var"].dtype == "nic":
+            pom = pd.to_numeric(pom, errors="coerce").astype(
+                "Int" + df["var"].dtype[4:]
+            )
         else:
-            pom = pd.to_numeric(pom, errors="coerce").astype(df['var'].dtype)
+            pom = pd.to_numeric(pom, errors="coerce").astype(df["var"].dtype)
 
     wyn["discrete"] = pom
 
@@ -467,6 +468,8 @@ def plot(bucket, title=None):
     gdzie wielkość kropek odzwierciedla kolumnę 'n_obs'.
     W przeciwnym wypadku rysuje scatter plot.
     """
+
+    bucket = bucket.copy()
     if "TOTAL" in bucket.index:
         bucket = bucket.drop(index="TOTAL")
 
@@ -479,13 +482,13 @@ def plot(bucket, title=None):
 
     # wielkość punktu
     # size = np.sqrt(bucket['n_obs']/(bucket['n_obs'].sum()/bucket.shape[0]))*50
-    size = (bucket["n_obs"] / (bucket["n_obs"].sum() / bucket.shape[0])) * 25
+    bucket["size"] = ((bucket["n_obs"] / (bucket["n_obs"].sum() / bucket.shape[0])) * 25).astype(float)
 
     # Rysowanie scatter plotu z wielkością kropek odzwierciedlającą 'n_obs'
     bucket.plot.scatter(
         x=x_var,
         y="avg_target",
-        s=size.to_numpy(dtype=float),
+        s="size",
         alpha=0.5,
         legend=True,
         label="target",
@@ -569,6 +572,7 @@ def bckt_tree(
     wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
     return wyn
 
+
 def bckt_calc(
     variable: pd.Series,
     target: pd.Series,
@@ -601,7 +605,7 @@ def bckt_calc(
                 var=variable,
                 target=target,
                 pred=pred,
-                weights=weights,    
+                weights=weights,
                 total=total,
                 min_info=min_info,
                 sort_by=sort_by,
@@ -628,13 +632,14 @@ def bckt_calc(
         raise ValueError(f"Nieznany typ analityczny: {analytical_type}")
 
     if plot:
-        globals()['plot'](result, title=variable.name)
+        globals()["plot"](result, title=variable.name)
 
     return result
 
 
-def gen_buckets(df: pd.DataFrame, types: ct.ColumnTypes, 
-                categorical_max_levels: int = 20) -> dict[str, pd.DataFrame]:
+def gen_buckets(
+    df: pd.DataFrame, types: ct.ColumnTypes, categorical_max_levels: int = 20
+) -> dict[str, pd.DataFrame]:
     """
     Funkcja do iteracji po kolumnach ramki danych i wywoływania funkcji bckt_stats
     dla zmiennych dyskretnych oraz bckt_cut_stats dla zmiennych ciągłych.
@@ -674,7 +679,9 @@ def gen_buckets(df: pd.DataFrame, types: ct.ColumnTypes,
             # Najpierw zmienną numeryczną klasyfikujemy jako dyskretną, żeby później stwierdzić,
             # że jest ich za dużo i nie robić statystyk? Uspójnić to jakoś.
             if df[column_name].nunique() > categorical_max_levels:
-                result = pd.DataFrame({"warning": "Too many categorical levels"}, index=[0])
+                result = pd.DataFrame(
+                    {"warning": "Too many categorical levels"}, index=[0]
+                )
             else:
                 # Wywołanie funkcji bckt_stats
                 result = bckt_stats(df[column_name], df[target_col])
@@ -692,10 +699,12 @@ def gen_buckets(df: pd.DataFrame, types: ct.ColumnTypes,
     return results
 
 
-def gen_report_objects(df: pd.DataFrame, types: ct.ColumnTypes, max_levels:int = 20) -> dict[str, list]:
+def gen_report_objects(
+    df: pd.DataFrame, types: ct.ColumnTypes, max_levels: int = 20
+) -> dict[str, list]:
     """
-    Funkcja generująca raport ze statystykami dla zmiennych w ramce danych, 
-    opisanych w `types`. 
+    Funkcja generująca raport ze statystykami dla zmiennych w ramce danych,
+    opisanych w `types`.
 
     Args:
         types: Obiekt klasy ColumnTypes.
@@ -710,7 +719,6 @@ def gen_report_objects(df: pd.DataFrame, types: ct.ColumnTypes, max_levels:int =
     report = {}
 
     for variable, buckets in buckets_d.items():
-        
         # Jeśli w kolumnie 'warning' jest informacja o zbyt dużej liczbie kategorii
         if buckets.columns[0] == "warning":
             gini = pd.DataFrame(
@@ -719,15 +727,13 @@ def gen_report_objects(df: pd.DataFrame, types: ct.ColumnTypes, max_levels:int =
                     "GINI discrete": [-9.999],
                 }
             )
-            report[variable] = [gini, buckets , None]
+            report[variable] = [gini, buckets, None]
 
             continue
 
         #####    dyskretyzacja drzewskiem    #####
         if types.types.loc[variable, "analytical_type"] == "continuous":
-            discrete = bckt_tree(
-                df, variable, types.target, min_samples_split=100
-            )
+            discrete = bckt_tree(df, variable, types.target, min_samples_split=100)
         else:
             discrete = buckets
 
@@ -737,7 +743,6 @@ def gen_report_objects(df: pd.DataFrame, types: ct.ColumnTypes, max_levels:int =
             x_orig = df[variable]
         else:
             x_orig = x
-
 
         gini = pd.DataFrame(
             {
@@ -791,15 +796,25 @@ if __name__ == "__main__":
     print(df2)
 
     # Przykładowe dane
-    df = pd.DataFrame({
-        "czas": ["2024-01", "2024-01", "2024-01", "2024-02", "2024-02", "2024-02", "2024-03", "2024-03"],
-        "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
-        "weights": [1, 2, 1, 3, 1, 2, 2, 1]
-    })
+    df = pd.DataFrame(
+        {
+            "czas": [
+                "2024-01",
+                "2024-01",
+                "2024-01",
+                "2024-02",
+                "2024-02",
+                "2024-02",
+                "2024-03",
+                "2024-03",
+            ],
+            "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
+            "weights": [1, 2, 1, 3, 1, 2, 2, 1],
+        }
+    )
 
-    result = bckt_stats_over_time(df['czas'],
-                                   df['var'],
-                                   target=pd.Series([0]*len(df)),
-                                   weights=df['weights'])
+    result = bckt_stats_over_time(
+        df["czas"], df["var"], target=pd.Series([0] * len(df)), weights=df["weights"]
+    )
     print(df)
     print(result)
