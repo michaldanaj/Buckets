@@ -107,12 +107,14 @@ def bckt_stats_over_time(
     # Dzielimy każdy wiersz przez sumę w wierszu (normalizacja do 1)
     pivot_normalized = pivot.div(pivot.sum(axis=1), axis=0)
 
+    pivot_denom = pivot.replace(0, pd.NA)
+
     df["wt"] = df["weights"] * df["target"]
     pivot_target = (
         df.pivot_table(
             index="czas", columns="var", values="wt", aggfunc="sum", fill_value=0
         )
-        / pivot
+        / pivot_denom
     )
 
     pivot_pred = None
@@ -126,7 +128,7 @@ def bckt_stats_over_time(
                 aggfunc="sum",
                 fill_value=0,
             )
-            / pivot
+            / pivot_denom
         )
 
     # Wynik:
@@ -573,6 +575,7 @@ def bckt_tree(
     target: str,
     max_depth: int = 3,
     min_samples_split: int = 2,
+    skipna: bool = True,
 ) -> pd.DataFrame:
     """
     Funkcja do generowania drzewa decyzyjnego na podstawie ramki danych.
@@ -582,12 +585,15 @@ def bckt_tree(
         target: Nazwa kolumny docelowej (target).
         max_depth: Maksymalna głębokość drzewa.
         min_samples_split: Minimalna liczba próbek wymagana do podziału węzła.
+        skipna: Jeśli True (domyślnie), wiersze z NaN w var są pomijane przy
+            budowie drzewa. Pełny df (z NaN) jest używany do statystyk bucketu.
 
     Returns:
         DataFrame z wynikami drzewa decyzyjnego.
     """
+    df_tree = df[[var, target]].dropna(subset=[var]) if skipna else df[[var, target]]
     tr = tree.make_tree(
-        df, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split
+        df_tree, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split
     )
     bounds = tree.extract_leaf_bounds(tr)
     # TODO: ogarnąć poniższe, może z wykorzystaniem Categorical

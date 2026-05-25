@@ -304,6 +304,29 @@ class BucketTests(unittest.TestCase):
         # Porównanie wyników
         pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
 
+    def test_bckt_stats_over_time_brak_var_w_okresie(self):
+        """
+        Gdy zmienna var nie przyjmuje danej wartości w jakimś okresie,
+        pivot_target nie powinien zawierać np.nan (0/0) dla tej kombinacji.
+        """
+        df = pd.DataFrame({
+            "czas":   ["2024-01", "2024-01", "2024-02", "2024-02"],
+            "var":    ["A",       "B",        "A",        pd.NA],
+            "target": [0,          1,          0,          0],
+        })
+
+        result = bckt.bckt_stats_over_time(
+            czas=df["czas"],
+            var=df["var"],
+            target=df["target"],
+        )
+
+        pivot_target = result[2]
+        # Float64 dtype: isna() nie wykrywa np.nan, tylko pd.NA — dlatego isin
+        self.assertFalse(
+            pivot_target.isin([np.nan]).any().any(),
+            "pivot_target zawiera np.nan (wynik 0/0) dla kombinacji okres–var bez obserwacji",
+        )
+
     if __name__ == '__main__':
-        unittest.main()  
-     
+        unittest.main()
