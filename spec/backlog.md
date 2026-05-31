@@ -179,3 +179,26 @@ Propozycja: w `plot` dla dyskretnej numerycznej używać osi `discrete` (wartoś
 liczbowe) zamiast `bin` (string) — wtedy odstępy odzwierciedlają faktyczne
 wartości. Dla kategorycznej zostaje `bin`. Wymaga rozróżnienia w `plot`, czy
 `discrete` jest numeryczne (np. po `kind`/`is_numeric` z `BucketTable`).
+
+---
+
+## 7. Zachowanie typu `Categorical` w kolumnie `discrete`
+
+Kontrakt typów ([typy-danych.md](typy-danych.md), sekcja 3) wymienia `Categorical`
+jako jeden z możliwych typów kolumny `discrete` ("typ wejścia
+`Int64`/`Float64`/`string`/`Categorical`"). Obecnie dla wejścia `Categorical`
+(np. uporządkowana kategoria `mały < średni < duży`) `discrete` jest
+**stringifikowane** do `string`, nie zachowuje typu `Categorical`.
+
+Skutek:
+- **kolejność wierszy** w tabeli jest poprawna — respektuje porządek kategorii,
+  bo wynika z `groupby` na uporządkowanej kategorii (nie z typu `discrete`),
+- ale **sama kolumna `discrete`** to zwykły string — sortowanie wyniku po
+  `discrete` dałoby porządek alfabetyczny, nie kategorialny; gubiona jest też
+  informacja o uporządkowaniu kategorii.
+
+Funkcjonalnie nieszkodliwe (scoring i wyświetlanie działają), ale to odstępstwo
+od litery kontraktu. Propozycja: w `from_discrete` zachować typ `Categorical`
+zmiennej wejściowej w kolumnie `discrete` (z porządkiem), zamiast pozwalać
+`convert_dtypes` zrzucić ją do `string`. Trzeba wtedy obsłużyć wiersz `TOTAL`
+(dodanie kategorii `"TOTAL"` albo `pd.NA`) bez psucia typu.
