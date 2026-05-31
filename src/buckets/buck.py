@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import buckets.column_types as ct
 import buckets.tree as tree
 import buckets.statitics as st
+from buckets.bucket_table import BucketTable
 
 # TODO: kolumna label zamiast bin?
 # TODO: zamiast zamieniać zmienną na stringa zawsze, sprawdzić różne inne
@@ -176,124 +177,9 @@ def bckt_stats(
       - mean: średnia wartość zmiennej target
       - median: mediana wartości zmiennej target
     """
-
-    # sprawdzam braki danych w target
-    if any(target.isnull()):
-        raise ValueError("W zmiennej 'target' nie może być braków danych!")
-
-    if weights is None:
-        weights = pd.Series(np.ones(len(var)))
-        weights.index = var.index
-
-    pred_none = False
-    if pred is None:
-        pred = target
-        pred_none = True
-        pred.index = var.index
-
-    # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
-    df = pd.DataFrame({"var": var, "target": target, "pred": pred, "weights": weights})
-    # konwertuję na typy pandasowe.
-    # Robię to, żeby int-y mogły mieć NaN-y
-    df = df.convert_dtypes()
-
-    # TODO: jeszcze to ogarnąć, również w kontekście innych funkcji
-    df["bin"] = var.astype("string")
-    nulle = var.isnull()
-    df.loc[nulle, "bin"] = NA_BIN_NAME
-
-    df["target_w"] = df.target * df.weights
-    df["pred_w"] = df.pred * df.weights
-
-    groupby_struct = df.groupby(by="bin")
-    wyn = groupby_struct.agg(
-        sum_target=("target_w", "sum"),
-        n_obs=("weights", "sum"),
-        sum_pred=("pred_w", "sum"),
-    )
-    wyn["avg_target"] = wyn.sum_target / wyn.n_obs
-    wyn["avg_pred"] = wyn.sum_pred / wyn.n_obs
-    wyn["pct_obs"] = wyn["n_obs"] / (wyn["n_obs"].sum())
-
-    # Doliczenie totala
-    # Dlatego robie to z groupby, bo nie wiadomo czemu agregacja
-    # na DataFrame zwraca mi błąd. Muszę taki workaround zrobić
-    if total:
-        wyn_tot = wyn.copy()
-        wyn_tot["bin_tot"] = "TOTAL"
-        total_row = wyn_tot.groupby("bin_tot").agg(
-            sum_target=("sum_target", "sum"),
-            n_obs=("n_obs", "sum"),
-            sum_pred=("sum_pred", "sum"),
-        )
-
-        total_row["avg_target"] = total_row.sum_target / total_row.n_obs
-        total_row["avg_pred"] = total_row.sum_pred / total_row.n_obs
-        total_row["pct_obs"] = total_row["n_obs"] / (total_row["n_obs"].sum())
-        wyn = pd.concat([wyn, total_row], axis=0)
-
-    wyn["bin"] = wyn.index
-
-    # Dodaję kolumnę discrete zachowującą typ danych wejściowej zmiennej.
-    # Z indeksu pobieram unikalne wartości zmiennej
-    # Jeśli zmienna była numeryczna, to muszę zrobić konwersję bez zgłaszania
-    # błędu w przypadku wystąpienia w indeksie stringu - np. 'TOTAL'
-    # stąd trzeba konwersję przeprowadzić z opcją errors (tylko w Series)
-    pom = wyn.index.to_series()
-    if pd.api.types.is_numeric_dtype(var):
-        # Zamiana int na Int, bo w tabelce mam NaN dla Totala
-        # TODO: zmienić to
-        if df["var"].dtype == "nic":
-            pom = pd.to_numeric(pom, errors="coerce").astype(
-                "Int" + df["var"].dtype[4:]
-            )
-        else:
-            pom = pd.to_numeric(pom, errors="coerce").astype(df["var"].dtype)
-
-    wyn["discrete"] = pom
-
-    # sortowanie
-    if sort_by is not None:
-        wyn.sort_values(by=sort_by, ascending=ascending, inplace=True)
-
-    # robię permutację wierszy, aby nulle były na początku
-    # a Total na końcu
-    temp_df = pd.DataFrame(
-        {"i": list(range(wyn.shape[0])), "j": list(range(wyn.shape[0]))}
-    )
-    temp_df.loc[wyn.index == NA_BIN_NAME, "j"] = -1
-    temp_df.loc[wyn.index == "TOTAL", "j"] = wyn.shape[0]
-    temp_df.sort_values("j", inplace=True)
-    wyn = wyn.iloc[temp_df.i]
-
-    temp_list = list(range(1, wyn.shape[0] + 1))
-    # temp_list.append(np.nan)
-    wyn["nr"] = temp_list
-
-    # dodaję nadmiarowe kolumny, żeby struktura tabeli była spójna ze
-    # strukturą z funkcji dla zmiennej ciągłej
-    if min_info:
-        columns = ["sum_target", "n_obs", "avg_target", "pct_obs"]
-    else:
-        columns = [
-            "nr",
-            "bin",
-            "discrete",
-            "od",
-            "srodek",
-            "do",
-            "mean",
-            "median",
-            "sum_target",
-            "n_obs",
-            "avg_target",
-            "pct_obs",
-        ]
-    if not pred_none:
-        columns += ["avg_pred"]
-
-    wyn = wyn.reindex(columns=columns)
-    return wyn
+    return BucketTable.from_discrete(
+        var, target, pred=pred, weights=weights
+    ).to_frame(total=total, min_info=min_info, sort_by=sort_by, ascending=ascending)
 
 
 # TODO: Sprawdzić, jak to jest z tym domykaniem przedziałów
