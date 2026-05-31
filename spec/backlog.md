@@ -159,3 +159,23 @@ refaktoru BucketTable, dlatego odłożone):
    po wygenerowaniu. Przy raporcie z wieloma zmiennymi rośnie zużycie pamięci.
    Poprawka: `plt.close(fig)` po osadzeniu wykresu (np. w `report_html` po zapisaniu
    do base64 — częściowo już jest) albo zwracać figury i domykać je u konsumenta.
+
+---
+
+## 6. Oś X wykresu dla dyskretnej numerycznej: `bin` (string) vs `discrete` (liczby)
+
+`plot` rysuje zmienną dyskretną po kolumnie `bin` (string), bo `median` jest dla
+niej całe `NA` (warunek wyboru osi w [buck.py](../src/buckets/buck.py), `plot`).
+Kolejność na osi jest poprawna — **numeryczna** (`1,2,…,20`), bo `groupby`
+sortuje klucze liczbowo zanim powstanie string (nie leksykalnie). Ale oś jest
+**kategoryczna**: punkty są rozmieszczone równomiernie, niezależnie od odległości
+wartości.
+
+Skutek: dla wartości z dziurami (np. `1, 2, 5, 100`) odstępy na osi są jednakowe,
+a nie proporcjonalne do wartości. Dla zmiennej dyskretnej numerycznej często
+chcielibyśmy oś liczbową z proporcjonalnymi odstępami.
+
+Propozycja: w `plot` dla dyskretnej numerycznej używać osi `discrete` (wartości
+liczbowe) zamiast `bin` (string) — wtedy odstępy odzwierciedlają faktyczne
+wartości. Dla kategorycznej zostaje `bin`. Wymaga rozróżnienia w `plot`, czy
+`discrete` jest numeryczne (np. po `kind`/`is_numeric` z `BucketTable`).
