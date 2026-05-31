@@ -396,3 +396,35 @@ class BucketTable:
         if self.kind == Kind.CONTINUOUS and "discrete" in wyn.columns:
             wyn["discrete"] = wyn["discrete"].astype("Float64")
         return wyn
+
+    # -------------------------------------------------------- operacje analityczne
+    def score(self, df: pd.DataFrame, var: str, val: str = "avg_target") -> pd.Series:
+        """Mapuje wartości `df[var]` na wartość `val` odpowiedniego bina (dawne `assign`)."""
+        import buckets.buck as buck
+
+        return buck.assign(df, var, self.to_frame(), val)
+
+    def plot(self, title=None):
+        """Wykres zależności avg_target od bina/środka przedziału (dawne `plot`)."""
+        import buckets.buck as buck
+
+        return buck.plot(self.to_frame(), title=title)
+
+    def gini_discrete(self) -> float:
+        """
+        Gini zdyskretyzowanej zmiennej, liczony wyłącznie z agregatów bucketu
+        (`n_obs`, `sum_target`), z binami uporządkowanymi po `avg_target`.
+
+        Bin braków (`<NA>`) jest pomijany — analogicznie do scoringu, gdzie
+        obserwacje z brakiem nie mają wartości rankingowej.
+        """
+        d = self._core[self._core["bin"] != NA_BIN_NAME].dropna(subset=["avg_target"])
+        d = d.sort_values("avg_target", kind="stable")
+        pos = pd.to_numeric(d["sum_target"])
+        neg = pd.to_numeric(d["n_obs"]) - pos
+        total_pos, total_neg = pos.sum(), neg.sum()
+        if total_pos == 0 or total_neg == 0:
+            return float("nan")
+        neg_below = neg.cumsum() - neg
+        auc = (pos * (neg_below + 0.5 * neg)).sum() / (total_pos * total_neg)
+        return float(2 * auc - 1)
