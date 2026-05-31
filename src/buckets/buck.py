@@ -405,49 +405,9 @@ def gen_buckets_for_df(
     Returns:
         None
     """
-    results = {}
+    from buckets.report import DatasetReport
 
-    # TODO: zrobić to bez pętli
-    for index, row in types.types.iterrows():
-        if row["role"] == "target":
-            target_col = row["column_name"]
-    assert target_col is not None, "Nie znaleziono kolumny docelowej (target) w types."
-
-    for index, row in types.types.iterrows():
-        column_name = row["column_name"]
-        analytical_type = row["analytical_type"]
-        role = row["role"]
-
-        if role in ["skipped", "target", "main_time_col"]:
-            continue
-
-        # jeśli zbyt dużo kategrycznych wartości
-
-        elif analytical_type in ["discrete", "categorical"]:
-            # print(f"Analizuję zmienną dyskretną: {column_name}")
-            # TODO: zobaczyć, jak było ogarnięte w R, żeby jednak robić statystyki zmiennej
-            # numerycznej, określonej jako dyskretna. A może i tak jest lepiej?
-            # Najpierw zmienną numeryczną klasyfikujemy jako dyskretną, żeby później stwierdzić,
-            # że jest ich za dużo i nie robić statystyk? Uspójnić to jakoś.
-            if df[column_name].nunique() > categorical_max_levels:
-                result = pd.DataFrame(
-                    {"warning": "Too many categorical levels"}, index=[0]
-                )
-            else:
-                # Wywołanie funkcji bckt_stats
-                result = bckt_stats(df[column_name], df[target_col])
-            # print(result)
-
-        elif analytical_type == "continuous":
-            # print(f"Analizuję zmienną ciągłą: {column_name}")
-            # Wywołanie funkcji bckt_cut_stats
-            result = bckt_cut_stats(df[column_name], df[target_col])
-            # print(result)
-        else:
-            raise ValueError(f"Nieznany typ analityczny: {analytical_type}")
-
-        results[column_name] = result
-    return results
+    return DatasetReport(df, types, categorical_max_levels).buckets()
 
 
 def gen_report_objects(
@@ -466,67 +426,9 @@ def gen_report_objects(
         Słownik, którego kluczem jest nazwa zmiennej, a wartością lista:
         [tabelka ze statystykami, wykres utworzony na jej podstawie].
     """
-    buckets_d = gen_buckets_for_df(df, types, categorical_max_levels=max_levels)
-    report = {}
+    from buckets.report import DatasetReport
 
-    for variable, buckets in buckets_d.items():
-        # Jeśli w kolumnie 'warning' jest informacja o zbyt dużej liczbie kategorii
-        if buckets.columns[0] == "warning":
-            gini = pd.DataFrame(
-                {
-                    "GINI": [-9.999],
-                    "GINI discrete": [-9.999],
-                }
-            )
-            report[variable] = [gini, buckets, None]
-
-            continue
-
-        #####    dyskretyzacja drzewskiem    #####
-        if types.types.loc[variable, "analytical_type"] == "continuous":
-            discrete = bckt_tree_stats(df, variable, types.target, min_samples_split=100)
-        else:
-            discrete = buckets
-
-        ####    gini    #####
-        x = assign(df, var=variable, buckets=discrete, val="avg_target")
-        if types.types.loc[variable, "analytical_type"] == "continuous":
-            x_orig = df[variable]
-        else:
-            x_orig = x
-
-        gini = pd.DataFrame(
-            {
-                "GINI": [st.gini(x_orig, df[types.target])],
-                "GINI discrete": [st.gini(x, df[types.target])],
-            }
-        )
-
-        ####    gini over time   #####
-        if types.time_col is not None:
-            time_series = df[types.time_col]
-            if pd.api.types.is_datetime64_any_dtype(time_series):
-                time_series = time_series.dt.to_period("M")
-            gini_ot = st.gini(x_orig, df[types.target], by=time_series)
-            gini_discrete_ot = st.gini(x, df[types.target], by=time_series)
-            gini_over_time = pd.DataFrame(
-                {"GINI": gini_ot, "GINI discrete": gini_discrete_ot}
-            ).reset_index()
-            wykres_gini_ot = plot_gini_over_time(gini_over_time, variable)
-        else:
-            gini_over_time = None
-            wykres_gini_ot = None
-
-        wykres = plot(buckets, variable)
-
-        # Dodanie tabelki i wykresu do raportu
-        # TODO: raport powinien być klasą (np. VariableReport), do której dodaje się elementy
-        #       metodą .add(element). Klasa powinna weryfikować typ każdego elementu
-        #       (pd.DataFrame lub matplotlib.Figure) i rzucać wyjątek przy niepoprawnym typie,
-        #       zamiast cicho produkować błąd dopiero w report_html.
-        report[variable] = [gini, gini_over_time, wykres_gini_ot, discrete, wykres]
-
-    return report
+    return DatasetReport(df, types, categorical_max_levels=max_levels).to_payload()
 
 
 if __name__ == "__main__":
