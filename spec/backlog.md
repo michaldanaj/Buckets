@@ -141,3 +141,21 @@ z dzisiejszymi referencjami testowymi — decyzja w
 [buck-refaktor-klasy.md](buck-refaktor-klasy.md), sekcja 7 pkt 8). Czystsze
 docelowo: neutralny `RangeIndex` + `bin` jako zwykła kolumna. Wymaga przepisania
 referencji testowych, więc odłożone na po ustabilizowaniu rdzenia.
+
+---
+
+## 5. Sprzątanie ostrzeżeń (warnings) przy testach
+
+Istniejące wcześniej ostrzeżenia, ujawnione przy pełnym `pytest` (spoza zakresu
+refaktoru BucketTable, dlatego odłożone):
+
+1. **`DataFrameGroupBy.apply operated on the grouping columns` (DeprecationWarning)**
+   w [statitics.py:34](../src/buckets/statitics.py#L34) — `gini(..., by=...)` używa
+   `df.groupby("by").apply(...)`. Poprawka: przekazać `include_groups=False` albo
+   wybrać kolumny po `groupby`, żeby nie operować na kolumnie grupującej.
+
+2. **`More than 20 figures have been opened` (RuntimeWarning)**
+   z [buck.py](../src/buckets/buck.py) (`plot`) — figury matplotlib nie są zamykane
+   po wygenerowaniu. Przy raporcie z wieloma zmiennymi rośnie zużycie pamięci.
+   Poprawka: `plt.close(fig)` po osadzeniu wykresu (np. w `report_html` po zapisaniu
+   do base64 — częściowo już jest) albo zwracać figury i domykać je u konsumenta.
