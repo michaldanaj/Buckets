@@ -263,51 +263,51 @@ class BucketTests(unittest.TestCase):
         expected.index.name = "czas"
         expected.columns.name = "var"
 
-        # Wywołanie funkcji
+        # Wywołanie funkcji — rozkład znormalizowany przez nazwany akcesor
         result = bckt.bckt_stats_over_time(
             czas=df["czas"],
             var=df["var"],
-            target=pd.Series([0]*len(df)),  # target nie jest używany w tej funkcji
+            target=pd.Series([0]*len(df)),  # target nie jest używany w distribution
             weights=df["weights"]
-        )
+        ).distribution()
 
         # Porównanie wyników
-        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)
 
     def test_bckt_stats_over_time_basic_bez_wag(self):
-        # Przygotowanie przykładowych danych
+        # Przygotowanie przykładowych danych (bez kolumny weights)
         df = pd.DataFrame({
             "czas": ["2024-01", "2024-01", "2024-01", "2024-02", "2024-02", "2024-02", "2024-03", "2024-03"],
             "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
         })
 
-        # Oczekiwany wynik
+        # Oczekiwany wynik — normalizacja per okres; w 2024-03 są tylko A i C (po 1/2)
         expected = pd.DataFrame(
             {
-                "A": [2/3, 1/3, 1/3],
+                "A": [2/3, 1/3, 1/2],
                 "B": [1/3, 1/3, 0.0],
-                "C": [0.0, 1/3, 1/3]
+                "C": [0.0, 1/3, 1/2]
             },
             index=["2024-01", "2024-02", "2024-03"]
         )
         expected.index.name = "czas"
         expected.columns.name = "var"
 
-        # Wywołanie funkcji
+        # Wywołanie funkcji — bez wag (weights=None → wagi jednostkowe)
         result = bckt.bckt_stats_over_time(
             czas=df["czas"],
             var=df["var"],
-            target=pd.Series([0]*len(df)),  # target nie jest używany w tej funkcji
-            weights=df["weights"]
-        )
+            target=pd.Series([0]*len(df)),
+            weights=None
+        ).distribution()
 
         # Porównanie wyników
-        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)
 
     def test_bckt_stats_over_time_brak_var_w_okresie(self):
         """
         Gdy zmienna var nie przyjmuje danej wartości w jakimś okresie,
-        pivot_target nie powinien zawierać np.nan (0/0) dla tej kombinacji.
+        avg_target nie powinien zawierać np.nan (0/0) dla tej kombinacji.
         """
         df = pd.DataFrame({
             "czas":   ["2024-01", "2024-01", "2024-02", "2024-02"],
@@ -315,17 +315,16 @@ class BucketTests(unittest.TestCase):
             "target": [0,          1,          0,          0],
         })
 
-        result = bckt.bckt_stats_over_time(
+        pivot_target = bckt.bckt_stats_over_time(
             czas=df["czas"],
             var=df["var"],
             target=df["target"],
-        )
+        ).avg_target()
 
-        pivot_target = result[2]
         # Float64 dtype: isna() nie wykrywa np.nan, tylko pd.NA — dlatego isin
         self.assertFalse(
             pivot_target.isin([np.nan]).any().any(),
-            "pivot_target zawiera np.nan (wynik 0/0) dla kombinacji okres–var bez obserwacji",
+            "avg_target zawiera np.nan (wynik 0/0) dla kombinacji okres–var bez obserwacji",
         )
 
     if __name__ == '__main__':

@@ -31,6 +31,7 @@ import buckets.column_types as ct
 import buckets.tree as tree
 import buckets.statitics as st
 from buckets.bucket_table import BucketTable
+from buckets.over_time import DistributionOverTime
 
 # TODO: kolumna label zamiast bin?
 # TODO: zamiast zamieniać zmienną na stringa zawsze, sprawdzić różne inne
@@ -55,85 +56,21 @@ def bckt_stats_over_time(
     target: pd.Series,
     pred: pd.Series | None = None,
     weights: pd.Series | None = None,
-) -> list[pd.DataFrame]:
+) -> DistributionOverTime:
     """
-    Funkcja wyliczająca statystyki zmiennej dyskretnej w czasie.
+    Buduje `DistributionOverTime` ze statystykami zmiennej dyskretnej w czasie.
 
+    Zwraca obiekt z nazwanymi akcesorami (`counts`, `distribution`, `avg_target`,
+    `avg_pred`) zamiast dawnej listy pozycyjnej.
 
     Args:
+      czas: zmienna czasowa (kolumna ramki Pandas)
       var: zmienna dyskretna, po której nastąpi grupowanie (kolumna ramki Pandas)
       target: zmienna celu, o wartościach 0 lub 1 (kolumna ramki Pandas)
       pred: opcjonalna predykcja zmiennej celu (kolumna ramki Pandas)
-      total: czy dodać w ostatnim wierszu statystyki dla całej próby
       weights: kolumna z wagami
-
-    Returns:
-      Zwraca listę z trzema, lub czterema tabelami ze statystykami:
-      - Liczności dla każdej wartości zmiennej var w przecięciu z datami, czyli zmianę liczności w czasie
-      - Rozkłady dla każdej wartości zmiennej var w ramach każdej z dat, czyli zmiana rozkładu w czasie
-      - Średnie wartości zmiennej celu dla każdej wartości zmiennej var w przecięciu z datami
-      - Średnie wartości predykcji dla każdej wartości zmiennej var w przecięciu z datami (o ile `pred` jest podane)
     """
-
-    bez_pred = pred is None
-
-    # sprawdzam braki danych w target
-    if any(target.isnull()):
-        raise ValueError("W zmiennej 'target' nie może być braków danych!")
-
-    if weights is None:
-        weights = pd.Series(np.ones(len(var)))
-        weights.index = var.index
-
-    pred_none = False
-    if bez_pred:
-        pred = target
-        pred_none = True
-        pred.index = var.index
-
-    # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
-    df = pd.DataFrame(
-        {"czas": czas, "var": var, "target": target, "pred": pred, "weights": weights}
-    )
-    # konwertuję na typy pandasowe.
-    # Robię to, żeby int-y mogły mieć NaN-y
-    df = df.convert_dtypes()
-    # Załóżmy, że masz ramkę df z kolumnami: 'czas', 'var', 'weights'
-
-    # Tworzymy tabelę przestawną z sumą wag
-    pivot = df.pivot_table(
-        index="czas", columns="var", values="weights", aggfunc="sum", fill_value=0
-    )
-
-    # Dzielimy każdy wiersz przez sumę w wierszu (normalizacja do 1)
-    pivot_normalized = pivot.div(pivot.sum(axis=1), axis=0)
-
-    pivot_denom = pivot.replace(0, pd.NA)
-
-    df["wt"] = df["weights"] * df["target"]
-    pivot_target = (
-        df.pivot_table(
-            index="czas", columns="var", values="wt", aggfunc="sum", fill_value=0
-        )
-        / pivot_denom
-    )
-
-    pivot_pred = None
-    if not bez_pred:
-        df["wt_pred"] = df["weights"] * df["pred"]
-        pivot_pred = (
-            df.pivot_table(
-                index="czas",
-                columns="var",
-                values="wt_pred",
-                aggfunc="sum",
-                fill_value=0,
-            )
-            / pivot_denom
-        )
-
-    # Wynik:
-    return [pivot, pivot_normalized, pivot_target, pivot_pred]
+    return DistributionOverTime(czas, var, target, pred=pred, weights=weights)
 
 
 def bckt_stats(

@@ -358,10 +358,13 @@ class BucketTable:
         `<NA>` na początek i `TOTAL` na koniec, numeruje `nr` i kanonizuje typy.
         Nie modyfikuje stanu obiektu.
         """
-        wyn = self._core.copy()
-
+        # Budujemy z rekordów (nie przez concat), bo doklejanie wiersza TOTAL
+        # z kolumnami all-NA wywołuje FutureWarning o ustalaniu dtype. Typy i tak
+        # narzuca _canonicalize na końcu.
+        rows = self._core.to_dict("records")
         if total:
-            wyn = pd.concat([wyn, pd.DataFrame([self._total_row()])], ignore_index=True)
+            rows.append(self._total_row())
+        wyn = pd.DataFrame(rows)
 
         if sort_by is not None:
             wyn = wyn.sort_values(by=sort_by, ascending=ascending, kind="stable")
