@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 
 dane = pd.read_csv(
@@ -54,3 +55,35 @@ dane_long.to_parquet("data/default_credit_card_long.parquet", index=False)
 print("Zapisano data/default_credit_card.parquet")
 print("Zapisano data/default_credit_card_long.parquet")
 print(f"Wymiary: {dane_long.shape}")
+
+
+# ---------------------------------------------------------------------------
+# Wersja "amend": rozszerzenie tabeli long o trzy kolumny testowe
+# (zmienna dyskretna numeryczna, stringowa kategoryczna, uporządkowana Category)
+# ---------------------------------------------------------------------------
+dane_long_amend = pd.read_parquet("data/default_credit_card_long.parquet")
+
+rng = np.random.default_rng(42)
+n = len(dane_long_amend)
+
+# 1) zmienna liczbowa dyskretna o wartościach 1, 3, 8, 10, 11, 18
+dane_long_amend["disc_num"] = pd.array(
+    rng.choice([1, 3, 8, 10, 11, 18], size=n), dtype="Int64"
+)
+
+# 2) zmienna stringowa o wartościach 'a', 'b', 'c'
+dane_long_amend["litera"] = pd.array(
+    rng.choice(["a", "b", "c"], size=n), dtype="string"
+)
+
+# 3) uporządkowana Category: 'mały' < 'średni' < 'duży'
+dane_long_amend["rozmiar"] = pd.Categorical(
+    rng.choice(["mały", "średni", "duży"], size=n),
+    categories=["mały", "średni", "duży"],
+    ordered=True,
+)
+
+dane_long_amend.to_parquet("data/default_credit_card_long_amend.parquet", index=False)
+
+print("Zapisano data/default_credit_card_long_amend.parquet")
+print(f"Wymiary: {dane_long_amend.shape}")
