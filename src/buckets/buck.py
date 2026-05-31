@@ -220,127 +220,24 @@ def bckt_cut_stats(
        ascending: czy sortować wyniki rosnąco
     """
 
-    if not pd.api.types.is_numeric_dtype(variable):
-        raise TypeError(
-            "Zmienna 'variable' musi być typu numerycznego, "
-            f"ale jest typu {variable.dtype}."
-        )
-    if not pd.api.types.is_numeric_dtype(target):
-        raise TypeError(
-            "Zmienna 'variable' musi być typu numerycznego, "
-            f"ale jest typu {target.dtype}."
-        )
-
-    if weights is None:
-        weights = pd.Series(np.ones(len(variable)))
-        weights.index = variable.index
-
-    df = pd.DataFrame(
-        {
-            "variable": variable,
-            "target": target,
-            "pred": pred,
-            "weights": weights,
-        }
-    )
-
-    # sprawdzam braki danych w target
-    if any(target.isnull()):
-        raise ValueError("W zmiennej 'target' nie może być braków danych!")
-
     if isinstance(bins, int):
-        kwantyle = pd.Series(
-            df.variable.quantile(
-                [i / bins for i in range(bins + 1)], interpolation="lower"
-            ).drop_duplicates()
+        bt = BucketTable.from_quantiles(
+            variable, target, n_bins=bins, pred=pred, weights=weights
         )
-    # TODO: dodać testy tego ifa
     elif isinstance(bins, list):
-        # bins.insert(0, -np.inf)
-        # bins.append(np.inf)
-        kwantyle = pd.Series(bins).sort_values().drop_duplicates()
+        bt = BucketTable.from_bins(
+            variable, target, bins=bins, pred=pred, weights=weights
+        )
     else:
         raise ValueError("bins musi być liczbą całkowitą lub listą wartości.")
 
-    df["bin"] = pd.cut(df.variable, kwantyle, include_lowest=True).astype(str)
-
-    # obsługa braków danych w zmiennej
-    df["braki"] = df.variable.isnull()
-    df.loc[df["braki"], "bin"] = NA_BIN_NAME
-
-    # wywołanie statystyk
-    wyn2 = bckt_stats(
-        var=df.bin,
-        target=df.target,
-        pred=pred,
-        weights=df.weights,
-        total=total,
-        sort_by=None,
-    )
-
-    groupby_str = df.groupby(by="bin")
-
-    wyn1 = groupby_str.agg(
-        median=("variable", "median"),
-        mean=("variable", "mean"),
-    )
-
-    # doliczenie totala
-    if total:
-        df.bin = "TOTAL"
-        total_series = df.groupby("bin").agg(
-            median=("variable", "median"),
-            mean=("variable", "mean"),
-        )
-
-        wyn1 = pd.concat([wyn1, total_series], axis=0)
-
-    # Robię update wartościami z wyn1
-    wyn2.update(wyn1)
-    wyn = wyn2
-    wyn["bin"] = wyn.index
-
-    # sortuję
-    if sort_by is not None:
-        wyn.sort_values(by=sort_by, ascending=ascending, inplace=True)
-    else:
-        wyn.sort_values("median", inplace=True)
-
-    # robię permutację wierszy, aby nulle były na początku
-    # a Total na końcu
-    temp_df = pd.DataFrame(
-        {"i": list(range(wyn.shape[0])), "j": list(range(wyn.shape[0]))}
-    )
-    temp_df.loc[wyn.index == NA_BIN_NAME, "j"] = -1
-    temp_df.loc[wyn.index == "TOTAL", "j"] = wyn.shape[0]
-    temp_df.sort_values("j", inplace=True)
-    wyn = wyn.iloc[temp_df.i]
-
-    # uzupełniam wartości od, do, srodek
-    wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "od"] = kwantyle.iloc[
-        :-1
-    ].to_list()
-    wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "do"] = kwantyle.iloc[1:].to_list()
-    wyn["srodek"] = (wyn["od"] + wyn["do"]) / 2
-
-    # uzupełniam kolumnę nr, bo po przesortowaniu jest bez sensu
-    temp_list = list(range(1, wyn.shape[0] + 1))
-    # temp_list.append(np.nan)
-    wyn["nr"] = temp_list
-
-    # Definicaj jest przy pomocy od-do, dlatego usuwam discrete w tym przypadku
-    wyn["discrete"] = np.nan
+    wyn = bt.to_frame(total=total, sort_by=sort_by, ascending=ascending)
 
     if plot:
         plt1 = wyn.plot.scatter("srodek", "avg_target", alpha=0.5, label="target")
         if pred is not None:
             wyn.plot.scatter(
-                "srodek",
-                "avg_pred",
-                ax=plt1,
-                color="g",
-                alpha=0.5,
-                label="predykcja",
+                "srodek", "avg_pred", ax=plt1, color="g", alpha=0.5, label="predykcja"
             )
         plt1.legend()
 

@@ -146,7 +146,7 @@ class BucketTests(unittest.TestCase):
                 ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
             )
 
-        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'], discr_type='Int64')
+        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'], discr_type='Float64')
         wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2)
         print('ref:')
         print(wyn_ref)
@@ -158,24 +158,18 @@ class BucketTests(unittest.TestCase):
 
     def test_bckt_cut_stat_sort_avg_target_desc(self):
         """ Test sortowania po zmiennej avg_target malejąco, dla zmiennej ciągłej"""
+        # poprawione od/srodek/do (były przestawione copy-paste); discrete=Float64 NA
         wyn_array = np.array(
                 [(1,          '<NA>', pd.NA, pd.NA, pd.NA,     pd.NA,     pd.NA,   pd.NA,   1,     1,    1., 0.125),
-                ( 2,    '(2.0, 8.0]', pd.NA,     1.,    1.5,         2.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),
-                ( 3,  '(0.999, 2.0]', pd.NA,     2.,     5.,         8.,        1.4,        1,   3,     5,   0.6, 0.625),
-                ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
+                ( 2,    '(2.0, 8.0]', pd.NA,     2.,     5.,         8.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),
+                ( 3,  '(0.999, 2.0]', pd.NA,     1.,    1.5,         2.,        1.4,       1.,   3,     5,   0.6, 0.625),
+                ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )]
             )
 
         wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2, sort_by = 'avg_target')
-        print(wyn)
-        print(wyn.dtypes)
 
-        print("XXXXXXXXXXXXXXXXXXXXX")
-        wyn_ref = self.df_from_array(wyn_array, discr_type='float64',
+        wyn_ref = self.df_from_array(wyn_array, discr_type='Float64',
                                      index = ['<NA>','(2.0, 8.0]','(0.999, 2.0]', 'TOTAL'])
-        print(wyn_ref)
-        print(wyn_ref.dtypes)
-        print(wyn)
-        print(wyn.dtypes)
 
         pd.testing.assert_frame_equal(wyn.convert_dtypes(), wyn_ref.convert_dtypes())
 

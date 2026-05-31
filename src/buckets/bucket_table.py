@@ -191,11 +191,13 @@ class BucketTable:
         stats = per_bin.groupby("bin_cat", observed=False).agg(
             mean=("variable", "mean"), median=("variable", "median")
         )
-        # mapa: string(interval) -> (od, do, mean, median)
+        # mapa: string(interval) -> (od, do). Granice bierzemy z `edges` wg
+        # kolejności kategorii, NIE z interval.left — najniższy przedział ma
+        # przez include_lowest sztucznie zaniżoną lewą granicę (np. 0.999).
+        edge_list = edges.tolist()
         bounds = {}
-        for interval in stats.index:
-            label = str(interval)
-            bounds[label] = (float(interval.left), float(interval.right))
+        for i, interval in enumerate(bin_cat.cat.categories):
+            bounds[str(interval)] = (float(edge_list[i]), float(edge_list[i + 1]))
         mean_map = {str(k): v for k, v in stats["mean"].items()}
         median_map = {str(k): v for k, v in stats["median"].items()}
 
@@ -207,8 +209,8 @@ class BucketTable:
         ) / 2
         core["mean"] = [mean_map.get(b, pd.NA) for b in core["bin"]]
         core["median"] = [median_map.get(b, pd.NA) for b in core["bin"]]
-        # przedział definiuje bin — discrete nie niesie informacji
-        core["discrete"] = pd.NA
+        # przedział definiuje bin — discrete nie niesie informacji (NA, Float64)
+        core["discrete"] = pd.array([pd.NA] * len(core), dtype="Float64")
 
         # porządek domyślny: rosnąco po dolnej granicy przedziału
         core = core.sort_values("od", na_position="last").reset_index(drop=True)
@@ -385,4 +387,9 @@ class BucketTable:
             columns = columns + ["avg_pred"]
         wyn = wyn.reindex(columns=columns)
 
-        return self._canonicalize(wyn)
+        wyn = self._canonicalize(wyn)
+        # discrete dla zmiennej ciągłej to same braki — deterministycznie Float64
+        # (bez tego convert_dtypes ustaliłby Int64 dla kolumny all-NA).
+        if self.kind == Kind.CONTINUOUS and "discrete" in wyn.columns:
+            wyn["discrete"] = wyn["discrete"].astype("Float64")
+        return wyn
