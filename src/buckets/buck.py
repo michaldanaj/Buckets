@@ -28,8 +28,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import buckets.column_types as ct
-import buckets.tree as tree
-import buckets.statitics as st
 from buckets.bucket_table import BucketTable
 from buckets.over_time import DistributionOverTime
 
@@ -311,17 +309,10 @@ def bckt_tree_stats(
     Returns:
         DataFrame z wynikami drzewa decyzyjnego.
     """
-    df_tree = df[[var, target]].dropna(subset=[var]) if skipna else df[[var, target]]
-    tr = tree.make_tree(
-        df_tree, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split
-    )
-    bounds = tree.extract_leaf_bounds(tr)
-    # TODO: ogarnąć poniższe, może z wykorzystaniem Categorical
-    bounds.insert(0, df[var].min() - 1)
-    bounds.append(df[var].max() + 1)
-    # TODO: dodać resztę parametrów funkcji bckt_cut_stats
-    wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
-    return wyn
+    return BucketTable.from_tree(
+        df, var, target, max_depth=max_depth,
+        min_samples_split=min_samples_split, skipna=skipna,
+    ).to_frame(total=True)
 
 
 def bckt_guessed_type_stats(
