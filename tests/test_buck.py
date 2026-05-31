@@ -23,37 +23,39 @@ class BucketTests(unittest.TestCase):
                               })
 
     #zmienna x numeryczna, dyskretna, z nan
+    # convert_dtypes() -> x jako Int64 (nullable), poprawna reprezentacja
+    # zmiennej numerycznej dyskretnej z brakiem (zamiast object).
     test_df_3 = pd.DataFrame({'x':[1,1,1,8,2,2,3,pd.NA],
                               'y':[1,1,0,0,1,0,1,1]
-                              })
+                              }).convert_dtypes()
 
 
-    def df_from_array(self, x, index, discr_type= 'object'):
+    def df_from_array(self, x, index, discr_type='string'):
         """
-            Funkcja tworzy DataFrame'a z listy array-ów jako rekordy. Ustawia nazwy 
-            zmiennych oraz ich typy. Nakłada przekazany indeks.
+            Buduje referencyjny DataFrame z listy rekordów, nakładając jawnie typy
+            zgodne z kontraktem (spec/typy-danych.md) — bez polegania na inferencji
+            `convert_dtypes`. Kolumny Float64 są tworzone przez `to_numeric`, by
+            poprawnie obsłużyć kolumny złożone z samych pd.NA.
+
+            discr_type: docelowy typ kolumny `discrete` (zależny od typu wejścia
+            danego testu): 'string' dla kategorycznych, 'Int64'/'Float64' dla
+            numerycznych.
         """
-        wyn = pd.DataFrame.from_records(x, index = index,
-            columns = ['nr', 'bin', 'discrete', 'od', 'srodek', 'do', 'mean', 'median',
-                'sum_target', 'n_obs', 'avg_target', 'pct_obs']
-                )
-        print("--------------------------------")
-        wyn = wyn.convert_dtypes()
-        print(wyn)
-        print(wyn.dtypes)
-        wyn=wyn.astype({'nr':            'Int64',
-                'bin':           'object',
-                'discrete':      discr_type,
-                'od':            'float64',
-                'srodek':        'float64',
-                'do':            'float64',
-                'mean':          'float64',
-                'median':        'float64',
-                'sum_target':    'Int64',
-                'n_obs':         'Int64',
-                'avg_target':    'float64',
-                'pct_obs':       'float64'})        
-        return wyn.convert_dtypes()
+        wyn = pd.DataFrame.from_records(x, index=index,
+            columns=['nr', 'bin', 'discrete', 'od', 'srodek', 'do', 'mean', 'median',
+                'sum_target', 'n_obs', 'avg_target', 'pct_obs'])
+
+        float_cols = ['od', 'srodek', 'do', 'mean', 'median', 'avg_target', 'pct_obs']
+        for col in float_cols:
+            wyn[col] = pd.to_numeric(wyn[col], errors='coerce').astype('Float64')
+        wyn = wyn.astype({
+            'nr':         'Int64',
+            'bin':        'string',
+            'discrete':   discr_type,
+            'sum_target': 'Int64',
+            'n_obs':      'Int64',
+        })
+        return wyn
 
     def test_bckt_stat_simple_cat(self):
         """ Test zmiennej kategorycznej"""
@@ -91,20 +93,19 @@ class BucketTests(unittest.TestCase):
 
     def test_bckt_stat_sort_avg_target(self):
         """ Test sortowania po zmiennej avg_target"""
+        # discrete zachowuje naturalny typ wejścia (Int64), bin = "8" nie "8.0"
         wyn_array = np.array(
             [(1, '<NA>',   pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.125),
-            (2, '8.0',        8.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0.        , 0.125),
-            (3, '2.0',        2.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.25 ),
-            (4, '1.0',        1.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 2, 3, 0.66666667, 0.375),
-            (5, '3.0',        3.0, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.125),
+            (2, '8',          8, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 0, 1, 0.        , 0.125),
+            (3, '2',          2, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 2, 0.5       , 0.25 ),
+            (4, '1',          1, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 2, 3, 0.66666667, 0.375),
+            (5, '3',          3, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 1, 1, 1.        , 0.125),
             (6, 'TOTAL',   pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 5, 8, 0.625     , 1.   )]
             )
-        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>', '8.0','2.0','1.0','3.0','TOTAL'])
-        wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
-        #print(wyn_ref)
+        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>', '8','2','1','3','TOTAL'],
+                                     discr_type='Int64')
 
         wyn = bckt.bckt_stats(self.test_df_3.x, self.test_df_3.y, sort_by = 'avg_target')
-        #print(wyn)
 
         pd.testing.assert_frame_equal(wyn, wyn_ref)
 
@@ -119,8 +120,8 @@ class BucketTests(unittest.TestCase):
                 (5, 'TOTAL', pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, 4, 7, 0.57142857, 1.)                
             ]
             )
-        wyn_ref = self.df_from_array(wyn_array, index = ['3','1','2','8','TOTAL'])
-        wyn_ref['discrete'] = wyn_ref.discrete.astype('float64')
+        wyn_ref = self.df_from_array(wyn_array, index = ['3','1','2','8','TOTAL'],
+                                     discr_type='Int64')
 
         wyn = bckt.bckt_stats(self.test_df_2.x, self.test_df_2.y, sort_by = 'avg_target', ascending=False)
         pd.testing.assert_frame_equal(wyn, wyn_ref)
@@ -145,7 +146,7 @@ class BucketTests(unittest.TestCase):
                 ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
             )
 
-        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'], discr_type='Int64')
+        wyn_ref = self.df_from_array(wyn_array, index = ['<NA>','(0.999, 2.0]','(2.0, 8.0]', 'TOTAL'], discr_type='Float64')
         wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2)
         print('ref:')
         print(wyn_ref)
@@ -157,24 +158,18 @@ class BucketTests(unittest.TestCase):
 
     def test_bckt_cut_stat_sort_avg_target_desc(self):
         """ Test sortowania po zmiennej avg_target malejąco, dla zmiennej ciągłej"""
+        # poprawione od/srodek/do (były przestawione copy-paste); discrete=Float64 NA
         wyn_array = np.array(
                 [(1,          '<NA>', pd.NA, pd.NA, pd.NA,     pd.NA,     pd.NA,   pd.NA,   1,     1,    1., 0.125),
-                ( 2,    '(2.0, 8.0]', pd.NA,     1.,    1.5,         2.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),
-                ( 3,  '(0.999, 2.0]', pd.NA,     2.,     5.,         8.,        1.4,        1,   3,     5,   0.6, 0.625),
-                ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )] 
+                ( 2,    '(2.0, 8.0]', pd.NA,     2.,     5.,         8.,        5.5,      5.5,   1,     2,   0.5, 0.25 ),
+                ( 3,  '(0.999, 2.0]', pd.NA,     1.,    1.5,         2.,        1.4,       1.,   3,     5,   0.6, 0.625),
+                ( 4,         'TOTAL', pd.NA, pd.NA, pd.NA,     pd.NA, 2.57142857,       2.,   5,     8, 0.625, 1.   )]
             )
 
         wyn = bckt.bckt_cut_stats(self.test_df_3.x, self.test_df_3.y, bins=2, sort_by = 'avg_target')
-        print(wyn)
-        print(wyn.dtypes)
 
-        print("XXXXXXXXXXXXXXXXXXXXX")
-        wyn_ref = self.df_from_array(wyn_array, discr_type='float64',
+        wyn_ref = self.df_from_array(wyn_array, discr_type='Float64',
                                      index = ['<NA>','(2.0, 8.0]','(0.999, 2.0]', 'TOTAL'])
-        print(wyn_ref)
-        print(wyn_ref.dtypes)
-        print(wyn)
-        print(wyn.dtypes)
 
         pd.testing.assert_frame_equal(wyn.convert_dtypes(), wyn_ref.convert_dtypes())
 
@@ -226,11 +221,16 @@ class BucketTests(unittest.TestCase):
             'TOTAL': {'nr': 5, 'bin': 'TOTAL', 'discrete': 'TOTAL', 'od': pd.NA, 'srodek': pd.NA, 'do': pd.NA, 'mean': pd.NA, 'median': pd.NA, 'sum_target': 5.0, 'n_obs': 8.0, 'avg_target': 0.625, 'pct_obs': 1.0}},
             orient='index'
         )
-        print(wyn.to_dict(orient='index') )
-        print(wyn.to_string())
-        print(wyn.dtypes)
-        pd.testing.assert_frame_equal(wyn,odczyt)
-        print(wyn.to_markdown())
+        # Triage (spec sekcja 9): from_dict daje surowe numpy dtypes — dociągamy
+        # referencję do kontraktu typów jawnie, zamiast polegać na inferencji.
+        float_cols = ['od', 'srodek', 'do', 'mean', 'median', 'avg_target', 'pct_obs']
+        for col in float_cols:
+            odczyt[col] = pd.to_numeric(odczyt[col], errors='coerce').astype('Float64')
+        odczyt = odczyt.astype({
+            'nr': 'Int64', 'bin': 'string', 'discrete': 'string',
+            'sum_target': 'Int64', 'n_obs': 'Int64',
+        })
+        pd.testing.assert_frame_equal(wyn, odczyt)
 
     def test_bckt_cut_filtered(self):
         """ Test, czy nie wywali błędu, gdy mam ramkę pandas z usuniętymi wierszami,
@@ -263,51 +263,51 @@ class BucketTests(unittest.TestCase):
         expected.index.name = "czas"
         expected.columns.name = "var"
 
-        # Wywołanie funkcji
+        # Wywołanie funkcji — rozkład znormalizowany przez nazwany akcesor
         result = bckt.bckt_stats_over_time(
             czas=df["czas"],
             var=df["var"],
-            target=pd.Series([0]*len(df)),  # target nie jest używany w tej funkcji
+            target=pd.Series([0]*len(df)),  # target nie jest używany w distribution
             weights=df["weights"]
-        )
+        ).distribution()
 
         # Porównanie wyników
-        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)
 
     def test_bckt_stats_over_time_basic_bez_wag(self):
-        # Przygotowanie przykładowych danych
+        # Przygotowanie przykładowych danych (bez kolumny weights)
         df = pd.DataFrame({
             "czas": ["2024-01", "2024-01", "2024-01", "2024-02", "2024-02", "2024-02", "2024-03", "2024-03"],
             "var": ["A", "B", "A", "A", "B", "C", "A", "C"],
         })
 
-        # Oczekiwany wynik
+        # Oczekiwany wynik — normalizacja per okres; w 2024-03 są tylko A i C (po 1/2)
         expected = pd.DataFrame(
             {
-                "A": [2/3, 1/3, 1/3],
+                "A": [2/3, 1/3, 1/2],
                 "B": [1/3, 1/3, 0.0],
-                "C": [0.0, 1/3, 1/3]
+                "C": [0.0, 1/3, 1/2]
             },
             index=["2024-01", "2024-02", "2024-03"]
         )
         expected.index.name = "czas"
         expected.columns.name = "var"
 
-        # Wywołanie funkcji
+        # Wywołanie funkcji — bez wag (weights=None → wagi jednostkowe)
         result = bckt.bckt_stats_over_time(
             czas=df["czas"],
             var=df["var"],
-            target=pd.Series([0]*len(df)),  # target nie jest używany w tej funkcji
-            weights=df["weights"]
-        )
+            target=pd.Series([0]*len(df)),
+            weights=None
+        ).distribution()
 
         # Porównanie wyników
-        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)    
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False, atol=1e-8)
 
     def test_bckt_stats_over_time_brak_var_w_okresie(self):
         """
         Gdy zmienna var nie przyjmuje danej wartości w jakimś okresie,
-        pivot_target nie powinien zawierać np.nan (0/0) dla tej kombinacji.
+        avg_target nie powinien zawierać np.nan (0/0) dla tej kombinacji.
         """
         df = pd.DataFrame({
             "czas":   ["2024-01", "2024-01", "2024-02", "2024-02"],
@@ -315,17 +315,16 @@ class BucketTests(unittest.TestCase):
             "target": [0,          1,          0,          0],
         })
 
-        result = bckt.bckt_stats_over_time(
+        pivot_target = bckt.bckt_stats_over_time(
             czas=df["czas"],
             var=df["var"],
             target=df["target"],
-        )
+        ).avg_target()
 
-        pivot_target = result[2]
         # Float64 dtype: isna() nie wykrywa np.nan, tylko pd.NA — dlatego isin
         self.assertFalse(
             pivot_target.isin([np.nan]).any().any(),
-            "pivot_target zawiera np.nan (wynik 0/0) dla kombinacji okres–var bez obserwacji",
+            "avg_target zawiera np.nan (wynik 0/0) dla kombinacji okres–var bez obserwacji",
         )
 
     if __name__ == '__main__':

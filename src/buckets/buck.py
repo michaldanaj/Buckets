@@ -28,8 +28,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import buckets.column_types as ct
-import buckets.tree as tree
-import buckets.statitics as st
+from buckets.bucket_table import BucketTable
+from buckets.over_time import DistributionOverTime
 
 # TODO: kolumna label zamiast bin?
 # TODO: zamiast zamieniać zmienną na stringa zawsze, sprawdzić różne inne
@@ -54,85 +54,21 @@ def bckt_stats_over_time(
     target: pd.Series,
     pred: pd.Series | None = None,
     weights: pd.Series | None = None,
-) -> list[pd.DataFrame]:
+) -> DistributionOverTime:
     """
-    Funkcja wyliczająca statystyki zmiennej dyskretnej w czasie.
+    Buduje `DistributionOverTime` ze statystykami zmiennej dyskretnej w czasie.
 
+    Zwraca obiekt z nazwanymi akcesorami (`counts`, `distribution`, `avg_target`,
+    `avg_pred`) zamiast dawnej listy pozycyjnej.
 
     Args:
+      czas: zmienna czasowa (kolumna ramki Pandas)
       var: zmienna dyskretna, po której nastąpi grupowanie (kolumna ramki Pandas)
       target: zmienna celu, o wartościach 0 lub 1 (kolumna ramki Pandas)
       pred: opcjonalna predykcja zmiennej celu (kolumna ramki Pandas)
-      total: czy dodać w ostatnim wierszu statystyki dla całej próby
       weights: kolumna z wagami
-
-    Returns:
-      Zwraca listę z trzema, lub czterema tabelami ze statystykami:
-      - Liczności dla każdej wartości zmiennej var w przecięciu z datami, czyli zmianę liczności w czasie
-      - Rozkłady dla każdej wartości zmiennej var w ramach każdej z dat, czyli zmiana rozkładu w czasie
-      - Średnie wartości zmiennej celu dla każdej wartości zmiennej var w przecięciu z datami
-      - Średnie wartości predykcji dla każdej wartości zmiennej var w przecięciu z datami (o ile `pred` jest podane)
     """
-
-    bez_pred = pred is None
-
-    # sprawdzam braki danych w target
-    if any(target.isnull()):
-        raise ValueError("W zmiennej 'target' nie może być braków danych!")
-
-    if weights is None:
-        weights = pd.Series(np.ones(len(var)))
-        weights.index = var.index
-
-    pred_none = False
-    if bez_pred:
-        pred = target
-        pred_none = True
-        pred.index = var.index
-
-    # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
-    df = pd.DataFrame(
-        {"czas": czas, "var": var, "target": target, "pred": pred, "weights": weights}
-    )
-    # konwertuję na typy pandasowe.
-    # Robię to, żeby int-y mogły mieć NaN-y
-    df = df.convert_dtypes()
-    # Załóżmy, że masz ramkę df z kolumnami: 'czas', 'var', 'weights'
-
-    # Tworzymy tabelę przestawną z sumą wag
-    pivot = df.pivot_table(
-        index="czas", columns="var", values="weights", aggfunc="sum", fill_value=0
-    )
-
-    # Dzielimy każdy wiersz przez sumę w wierszu (normalizacja do 1)
-    pivot_normalized = pivot.div(pivot.sum(axis=1), axis=0)
-
-    pivot_denom = pivot.replace(0, pd.NA)
-
-    df["wt"] = df["weights"] * df["target"]
-    pivot_target = (
-        df.pivot_table(
-            index="czas", columns="var", values="wt", aggfunc="sum", fill_value=0
-        )
-        / pivot_denom
-    )
-
-    pivot_pred = None
-    if not bez_pred:
-        df["wt_pred"] = df["weights"] * df["pred"]
-        pivot_pred = (
-            df.pivot_table(
-                index="czas",
-                columns="var",
-                values="wt_pred",
-                aggfunc="sum",
-                fill_value=0,
-            )
-            / pivot_denom
-        )
-
-    # Wynik:
-    return [pivot, pivot_normalized, pivot_target, pivot_pred]
+    return DistributionOverTime(czas, var, target, pred=pred, weights=weights)
 
 
 def bckt_stats(
@@ -176,124 +112,9 @@ def bckt_stats(
       - mean: średnia wartość zmiennej target
       - median: mediana wartości zmiennej target
     """
-
-    # sprawdzam braki danych w target
-    if any(target.isnull()):
-        raise ValueError("W zmiennej 'target' nie może być braków danych!")
-
-    if weights is None:
-        weights = pd.Series(np.ones(len(var)))
-        weights.index = var.index
-
-    pred_none = False
-    if pred is None:
-        pred = target
-        pred_none = True
-        pred.index = var.index
-
-    # jeśli są braki danych, to znaczy że została podana zmienna numeryczna (dyskretna)
-    df = pd.DataFrame({"var": var, "target": target, "pred": pred, "weights": weights})
-    # konwertuję na typy pandasowe.
-    # Robię to, żeby int-y mogły mieć NaN-y
-    df = df.convert_dtypes()
-
-    # TODO: jeszcze to ogarnąć, również w kontekście innych funkcji
-    df["bin"] = var.astype("string")
-    nulle = var.isnull()
-    df.loc[nulle, "bin"] = NA_BIN_NAME
-
-    df["target_w"] = df.target * df.weights
-    df["pred_w"] = df.pred * df.weights
-
-    groupby_struct = df.groupby(by="bin")
-    wyn = groupby_struct.agg(
-        sum_target=("target_w", "sum"),
-        n_obs=("weights", "sum"),
-        sum_pred=("pred_w", "sum"),
-    )
-    wyn["avg_target"] = wyn.sum_target / wyn.n_obs
-    wyn["avg_pred"] = wyn.sum_pred / wyn.n_obs
-    wyn["pct_obs"] = wyn["n_obs"] / (wyn["n_obs"].sum())
-
-    # Doliczenie totala
-    # Dlatego robie to z groupby, bo nie wiadomo czemu agregacja
-    # na DataFrame zwraca mi błąd. Muszę taki workaround zrobić
-    if total:
-        wyn_tot = wyn.copy()
-        wyn_tot["bin_tot"] = "TOTAL"
-        total_row = wyn_tot.groupby("bin_tot").agg(
-            sum_target=("sum_target", "sum"),
-            n_obs=("n_obs", "sum"),
-            sum_pred=("sum_pred", "sum"),
-        )
-
-        total_row["avg_target"] = total_row.sum_target / total_row.n_obs
-        total_row["avg_pred"] = total_row.sum_pred / total_row.n_obs
-        total_row["pct_obs"] = total_row["n_obs"] / (total_row["n_obs"].sum())
-        wyn = pd.concat([wyn, total_row], axis=0)
-
-    wyn["bin"] = wyn.index
-
-    # Dodaję kolumnę discrete zachowującą typ danych wejściowej zmiennej.
-    # Z indeksu pobieram unikalne wartości zmiennej
-    # Jeśli zmienna była numeryczna, to muszę zrobić konwersję bez zgłaszania
-    # błędu w przypadku wystąpienia w indeksie stringu - np. 'TOTAL'
-    # stąd trzeba konwersję przeprowadzić z opcją errors (tylko w Series)
-    pom = wyn.index.to_series()
-    if pd.api.types.is_numeric_dtype(var):
-        # Zamiana int na Int, bo w tabelce mam NaN dla Totala
-        # TODO: zmienić to
-        if df["var"].dtype == "nic":
-            pom = pd.to_numeric(pom, errors="coerce").astype(
-                "Int" + df["var"].dtype[4:]
-            )
-        else:
-            pom = pd.to_numeric(pom, errors="coerce").astype(df["var"].dtype)
-
-    wyn["discrete"] = pom
-
-    # sortowanie
-    if sort_by is not None:
-        wyn.sort_values(by=sort_by, ascending=ascending, inplace=True)
-
-    # robię permutację wierszy, aby nulle były na początku
-    # a Total na końcu
-    temp_df = pd.DataFrame(
-        {"i": list(range(wyn.shape[0])), "j": list(range(wyn.shape[0]))}
-    )
-    temp_df.loc[wyn.index == NA_BIN_NAME, "j"] = -1
-    temp_df.loc[wyn.index == "TOTAL", "j"] = wyn.shape[0]
-    temp_df.sort_values("j", inplace=True)
-    wyn = wyn.iloc[temp_df.i]
-
-    temp_list = list(range(1, wyn.shape[0] + 1))
-    # temp_list.append(np.nan)
-    wyn["nr"] = temp_list
-
-    # dodaję nadmiarowe kolumny, żeby struktura tabeli była spójna ze
-    # strukturą z funkcji dla zmiennej ciągłej
-    if min_info:
-        columns = ["sum_target", "n_obs", "avg_target", "pct_obs"]
-    else:
-        columns = [
-            "nr",
-            "bin",
-            "discrete",
-            "od",
-            "srodek",
-            "do",
-            "mean",
-            "median",
-            "sum_target",
-            "n_obs",
-            "avg_target",
-            "pct_obs",
-        ]
-    if not pred_none:
-        columns += ["avg_pred"]
-
-    wyn = wyn.reindex(columns=columns)
-    return wyn
+    return BucketTable.from_discrete(
+        var, target, pred=pred, weights=weights
+    ).to_frame(total=total, min_info=min_info, sort_by=sort_by, ascending=ascending)
 
 
 # TODO: Sprawdzić, jak to jest z tym domykaniem przedziałów
@@ -334,127 +155,24 @@ def bckt_cut_stats(
        ascending: czy sortować wyniki rosnąco
     """
 
-    if not pd.api.types.is_numeric_dtype(variable):
-        raise TypeError(
-            "Zmienna 'variable' musi być typu numerycznego, "
-            f"ale jest typu {variable.dtype}."
-        )
-    if not pd.api.types.is_numeric_dtype(target):
-        raise TypeError(
-            "Zmienna 'variable' musi być typu numerycznego, "
-            f"ale jest typu {target.dtype}."
-        )
-
-    if weights is None:
-        weights = pd.Series(np.ones(len(variable)))
-        weights.index = variable.index
-
-    df = pd.DataFrame(
-        {
-            "variable": variable,
-            "target": target,
-            "pred": pred,
-            "weights": weights,
-        }
-    )
-
-    # sprawdzam braki danych w target
-    if any(target.isnull()):
-        raise ValueError("W zmiennej 'target' nie może być braków danych!")
-
     if isinstance(bins, int):
-        kwantyle = pd.Series(
-            df.variable.quantile(
-                [i / bins for i in range(bins + 1)], interpolation="lower"
-            ).drop_duplicates()
+        bt = BucketTable.from_quantiles(
+            variable, target, n_bins=bins, pred=pred, weights=weights
         )
-    # TODO: dodać testy tego ifa
     elif isinstance(bins, list):
-        # bins.insert(0, -np.inf)
-        # bins.append(np.inf)
-        kwantyle = pd.Series(bins).sort_values().drop_duplicates()
+        bt = BucketTable.from_bins(
+            variable, target, bins=bins, pred=pred, weights=weights
+        )
     else:
         raise ValueError("bins musi być liczbą całkowitą lub listą wartości.")
 
-    df["bin"] = pd.cut(df.variable, kwantyle, include_lowest=True).astype(str)
-
-    # obsługa braków danych w zmiennej
-    df["braki"] = df.variable.isnull()
-    df.loc[df["braki"], "bin"] = NA_BIN_NAME
-
-    # wywołanie statystyk
-    wyn2 = bckt_stats(
-        var=df.bin,
-        target=df.target,
-        pred=pred,
-        weights=df.weights,
-        total=total,
-        sort_by=None,
-    )
-
-    groupby_str = df.groupby(by="bin")
-
-    wyn1 = groupby_str.agg(
-        median=("variable", "median"),
-        mean=("variable", "mean"),
-    )
-
-    # doliczenie totala
-    if total:
-        df.bin = "TOTAL"
-        total_series = df.groupby("bin").agg(
-            median=("variable", "median"),
-            mean=("variable", "mean"),
-        )
-
-        wyn1 = pd.concat([wyn1, total_series], axis=0)
-
-    # Robię update wartościami z wyn1
-    wyn2.update(wyn1)
-    wyn = wyn2
-    wyn["bin"] = wyn.index
-
-    # sortuję
-    if sort_by is not None:
-        wyn.sort_values(by=sort_by, ascending=ascending, inplace=True)
-    else:
-        wyn.sort_values("median", inplace=True)
-
-    # robię permutację wierszy, aby nulle były na początku
-    # a Total na końcu
-    temp_df = pd.DataFrame(
-        {"i": list(range(wyn.shape[0])), "j": list(range(wyn.shape[0]))}
-    )
-    temp_df.loc[wyn.index == NA_BIN_NAME, "j"] = -1
-    temp_df.loc[wyn.index == "TOTAL", "j"] = wyn.shape[0]
-    temp_df.sort_values("j", inplace=True)
-    wyn = wyn.iloc[temp_df.i]
-
-    # uzupełniam wartości od, do, srodek
-    wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "od"] = kwantyle.iloc[
-        :-1
-    ].to_list()
-    wyn.loc[~wyn.index.isin(["TOTAL", NA_BIN_NAME]), "do"] = kwantyle.iloc[1:].to_list()
-    wyn["srodek"] = (wyn["od"] + wyn["do"]) / 2
-
-    # uzupełniam kolumnę nr, bo po przesortowaniu jest bez sensu
-    temp_list = list(range(1, wyn.shape[0] + 1))
-    # temp_list.append(np.nan)
-    wyn["nr"] = temp_list
-
-    # Definicaj jest przy pomocy od-do, dlatego usuwam discrete w tym przypadku
-    wyn["discrete"] = np.nan
+    wyn = bt.to_frame(total=total, sort_by=sort_by, ascending=ascending)
 
     if plot:
         plt1 = wyn.plot.scatter("srodek", "avg_target", alpha=0.5, label="target")
         if pred is not None:
             wyn.plot.scatter(
-                "srodek",
-                "avg_pred",
-                ax=plt1,
-                color="g",
-                alpha=0.5,
-                label="predykcja",
+                "srodek", "avg_pred", ax=plt1, color="g", alpha=0.5, label="predykcja"
             )
         plt1.legend()
 
@@ -591,17 +309,10 @@ def bckt_tree_stats(
     Returns:
         DataFrame z wynikami drzewa decyzyjnego.
     """
-    df_tree = df[[var, target]].dropna(subset=[var]) if skipna else df[[var, target]]
-    tr = tree.make_tree(
-        df_tree, [var], target, max_depth=max_depth, min_samples_leaf=min_samples_split
-    )
-    bounds = tree.extract_leaf_bounds(tr)
-    # TODO: ogarnąć poniższe, może z wykorzystaniem Categorical
-    bounds.insert(0, df[var].min() - 1)
-    bounds.append(df[var].max() + 1)
-    # TODO: dodać resztę parametrów funkcji bckt_cut_stats
-    wyn = bckt_cut_stats(variable=df[var], target=df[target], bins=bounds, total=True)
-    return wyn
+    return BucketTable.from_tree(
+        df, var, target, max_depth=max_depth,
+        min_samples_split=min_samples_split, skipna=skipna,
+    ).to_frame(total=True)
 
 
 def bckt_guessed_type_stats(
@@ -685,49 +396,9 @@ def gen_buckets_for_df(
     Returns:
         None
     """
-    results = {}
+    from buckets.report import DatasetReport
 
-    # TODO: zrobić to bez pętli
-    for index, row in types.types.iterrows():
-        if row["role"] == "target":
-            target_col = row["column_name"]
-    assert target_col is not None, "Nie znaleziono kolumny docelowej (target) w types."
-
-    for index, row in types.types.iterrows():
-        column_name = row["column_name"]
-        analytical_type = row["analytical_type"]
-        role = row["role"]
-
-        if role in ["skipped", "target", "main_time_col"]:
-            continue
-
-        # jeśli zbyt dużo kategrycznych wartości
-
-        elif analytical_type in ["discrete", "categorical"]:
-            # print(f"Analizuję zmienną dyskretną: {column_name}")
-            # TODO: zobaczyć, jak było ogarnięte w R, żeby jednak robić statystyki zmiennej
-            # numerycznej, określonej jako dyskretna. A może i tak jest lepiej?
-            # Najpierw zmienną numeryczną klasyfikujemy jako dyskretną, żeby później stwierdzić,
-            # że jest ich za dużo i nie robić statystyk? Uspójnić to jakoś.
-            if df[column_name].nunique() > categorical_max_levels:
-                result = pd.DataFrame(
-                    {"warning": "Too many categorical levels"}, index=[0]
-                )
-            else:
-                # Wywołanie funkcji bckt_stats
-                result = bckt_stats(df[column_name], df[target_col])
-            # print(result)
-
-        elif analytical_type == "continuous":
-            # print(f"Analizuję zmienną ciągłą: {column_name}")
-            # Wywołanie funkcji bckt_cut_stats
-            result = bckt_cut_stats(df[column_name], df[target_col])
-            # print(result)
-        else:
-            raise ValueError(f"Nieznany typ analityczny: {analytical_type}")
-
-        results[column_name] = result
-    return results
+    return DatasetReport(df, types, categorical_max_levels).buckets()
 
 
 def gen_report_objects(
@@ -746,67 +417,9 @@ def gen_report_objects(
         Słownik, którego kluczem jest nazwa zmiennej, a wartością lista:
         [tabelka ze statystykami, wykres utworzony na jej podstawie].
     """
-    buckets_d = gen_buckets_for_df(df, types, categorical_max_levels=max_levels)
-    report = {}
+    from buckets.report import DatasetReport
 
-    for variable, buckets in buckets_d.items():
-        # Jeśli w kolumnie 'warning' jest informacja o zbyt dużej liczbie kategorii
-        if buckets.columns[0] == "warning":
-            gini = pd.DataFrame(
-                {
-                    "GINI": [-9.999],
-                    "GINI discrete": [-9.999],
-                }
-            )
-            report[variable] = [gini, buckets, None]
-
-            continue
-
-        #####    dyskretyzacja drzewskiem    #####
-        if types.types.loc[variable, "analytical_type"] == "continuous":
-            discrete = bckt_tree_stats(df, variable, types.target, min_samples_split=100)
-        else:
-            discrete = buckets
-
-        ####    gini    #####
-        x = assign(df, var=variable, buckets=discrete, val="avg_target")
-        if types.types.loc[variable, "analytical_type"] == "continuous":
-            x_orig = df[variable]
-        else:
-            x_orig = x
-
-        gini = pd.DataFrame(
-            {
-                "GINI": [st.gini(x_orig, df[types.target])],
-                "GINI discrete": [st.gini(x, df[types.target])],
-            }
-        )
-
-        ####    gini over time   #####
-        if types.time_col is not None:
-            time_series = df[types.time_col]
-            if pd.api.types.is_datetime64_any_dtype(time_series):
-                time_series = time_series.dt.to_period("M")
-            gini_ot = st.gini(x_orig, df[types.target], by=time_series)
-            gini_discrete_ot = st.gini(x, df[types.target], by=time_series)
-            gini_over_time = pd.DataFrame(
-                {"GINI": gini_ot, "GINI discrete": gini_discrete_ot}
-            ).reset_index()
-            wykres_gini_ot = plot_gini_over_time(gini_over_time, variable)
-        else:
-            gini_over_time = None
-            wykres_gini_ot = None
-
-        wykres = plot(buckets, variable)
-
-        # Dodanie tabelki i wykresu do raportu
-        # TODO: raport powinien być klasą (np. VariableReport), do której dodaje się elementy
-        #       metodą .add(element). Klasa powinna weryfikować typ każdego elementu
-        #       (pd.DataFrame lub matplotlib.Figure) i rzucać wyjątek przy niepoprawnym typie,
-        #       zamiast cicho produkować błąd dopiero w report_html.
-        report[variable] = [gini, gini_over_time, wykres_gini_ot, discrete, wykres]
-
-    return report
+    return DatasetReport(df, types, categorical_max_levels=max_levels).to_payload()
 
 
 if __name__ == "__main__":
