@@ -3,6 +3,13 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
+    """Rola kolumny w analizie: wyjaśniająca, docelowa, główna kolumna czasowa lub pomijana.
+
+    - `explanatory`: Kolumna, która jest używana jako zmienna objaśniająca (cecha).
+    - `target`: Kolumna, która jest używana jako zmienna objaśniana (etykieta).
+    - `main_time_col`: Kolumna, która jest używana jako główna kolumna czasowa do analizowania zmian w czasie.
+    - `skipped`: Kolumna, która jest pomijana w analizie (np. identyfikatory, daty).
+    """
     EXPLANATORY = "explanatory"
     TARGET = "target"
     MAIN_TIME_COL = "main_time_col"
@@ -10,6 +17,12 @@ class Role(StrEnum):
 
 
 class AnalyticalType(StrEnum):
+    """Typ analityczny kolumny: dyskretny, ciągły lub kategoryczny.
+    
+    - `categorical`: Zmienna **nie numeryczna**, która reprezentuje kategorie (np. płeć, kolor).
+    - `discrete`: Zmienna **numeryczna** z niewielką liczbą unikalnych wartości (np. liczba dzieci).
+    - `continuous`: Zmienna **numeryczna** z dużą liczbą unikalnych wartości (np. dochód).
+    """
     DISCRETE = "discrete"
     CONTINUOUS = "continuous"
     CATEGORICAL = "categorical"
@@ -17,13 +30,22 @@ class AnalyticalType(StrEnum):
 
 def guess_column_type(var: pd.Series, discrete_threshold: int = 20) -> AnalyticalType:
     """
-    Funkcja do zgadywania typu kolumny na podstawie wartości.
+    Określa typ analityczny zmiennej na podstawie jej dtype i liczby unikalnych wartości.
+
+    Logika klasyfikacji:
+    - Zmienna nienumeryczna → `categorical`
+    - Zmienna numeryczna z liczbą unikalnych wartości < `discrete_threshold` → `discrete`
+    - Zmienna numeryczna z liczbą unikalnych wartości >= `discrete_threshold` → `continuous`
+
+    NaN-y są ignorowane przez `nunique()`, więc nie wpływają na klasyfikację.
 
     Args:
-        var: Zmienna, dla której ma być zgadywany typ kolumny.
+        var: Kolumna Pandas, dla której określamy typ.
+        discrete_threshold: Próg liczby unikalnych wartości rozdzielający `discrete` od
+            `continuous`. Domyślnie 20.
 
     Returns:
-        AnalyticalType: Typ kolumny.
+        AnalyticalType: Wykryty typ analityczny zmiennej.
     """
     if pd.api.types.is_numeric_dtype(var):
         if var.nunique() < discrete_threshold:
@@ -36,7 +58,18 @@ def guess_column_type(var: pd.Series, discrete_threshold: int = 20) -> Analytica
 
 class ColumnTypes:
     """
-    Klasa do określania typów zmiennych w ramce danych Pandas.
+    Przechowuje metadane kolumn ramki danych: typ analityczny i rolę każdej zmiennej.
+
+    Typy analityczne (`analytical_type`) są wykrywane automatycznie przez `guess_column_type`.
+    Role (`role`) są przypisywane heurystycznie (kolumna `target` → TARGET, kolumny
+    z `id` w nazwie lub `date` → SKIPPED, pozostałe → EXPLANATORY) i można je
+    nadpisać po utworzeniu obiektu (np. przez setter `time_col`).
+
+    Attributes:
+        discrete_threshold: Próg liczby unikalnych wartości używany przy klasyfikacji
+            numerycznych zmiennych jako `discrete` vs `continuous`.
+        types: DataFrame z kolumnami `column_name`, `dtype`, `analytical_type`, `role`,
+            indeksowany nazwami kolumn wejściowego DataFrame.
     """
 
     def __init__(self, df: pd.DataFrame, discrete_threshold: int = 20):

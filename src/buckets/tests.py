@@ -32,5 +32,5 @@ vr.save(html, "./result/report.html")
 
 print("Raport został zapisany jako 'result/report.html'.")
 
-bkt.bckt_calc(dane['PAY_AMT1'], dane['default payment next month'], 
+bkt.bckt_guessed_type_stats(dane['PAY_AMT1'], dane['default payment next month'], 
               plot=True, bins=20)

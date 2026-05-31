@@ -33,5 +33,5 @@ miesiac = dane_long["date"].dt.to_period("M")
 gini_over_time = st.gini(dane_long["pay_status"], dane_long["target"], by=miesiac)
 print(gini_over_time)
 
-wyn_tree = buck.bckt_tree(dane_long, "credit_limit", "target")
+wyn_tree = buck.bckt_tree_stats(dane_long, "credit_limit", "target")
 print(wyn_tree)

@@ -569,7 +569,7 @@ def assign(df, var, buckets, val) -> pd.Series:
     return wyn
 
 
-def bckt_tree(
+def bckt_tree_stats(
     df: pd.DataFrame,
     var: str,
     target: str,
@@ -604,7 +604,7 @@ def bckt_tree(
     return wyn
 
 
-def bckt_calc(
+def bckt_guessed_type_stats(
     variable: pd.Series,
     target: pd.Series,
     pred: pd.Series | None = None,
@@ -668,7 +668,7 @@ def bckt_calc(
     return result
 
 
-def gen_buckets(
+def gen_buckets_for_df(
     df: pd.DataFrame, types: ct.ColumnTypes, categorical_max_levels: int = 20
 ) -> dict[str, pd.DataFrame]:
     """
@@ -746,7 +746,7 @@ def gen_report_objects(
         Słownik, którego kluczem jest nazwa zmiennej, a wartością lista:
         [tabelka ze statystykami, wykres utworzony na jej podstawie].
     """
-    buckets_d = gen_buckets(df, types, categorical_max_levels=max_levels)
+    buckets_d = gen_buckets_for_df(df, types, categorical_max_levels=max_levels)
     report = {}
 
     for variable, buckets in buckets_d.items():
@@ -764,7 +764,7 @@ def gen_report_objects(
 
         #####    dyskretyzacja drzewskiem    #####
         if types.types.loc[variable, "analytical_type"] == "continuous":
-            discrete = bckt_tree(df, variable, types.target, min_samples_split=100)
+            discrete = bckt_tree_stats(df, variable, types.target, min_samples_split=100)
         else:
             discrete = buckets
 
