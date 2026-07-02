@@ -19,6 +19,8 @@ from enum import Enum
 import numpy as np
 import pandas as pd
 
+import buckets.statitics as st
+
 NA_BIN_NAME = "<NA>"
 
 # Kolumny o stałym, zadeklarowanym typie. `astype` z tej mapy jest aplikowany
@@ -186,10 +188,23 @@ class BucketTable:
 
         core, has_pred = _aggregate(bin_cat, target, pred, weights)
 
-        # mean/median z oryginalnej zmiennej per bin; mapowane po etykiecie bina
-        per_bin = pd.DataFrame({"variable": variable.values, "bin_cat": bin_cat.values})
-        stats = per_bin.groupby("bin_cat", observed=False).agg(
-            mean=("variable", "mean"), median=("variable", "median")
+        # mean/median z oryginalnej zmiennej per bin (WAŻONE — wagi to krotność
+        # obserwacji, więc opisowe statystyki zmiennej też muszą je respektować);
+        # mapowane po etykiecie bina
+        w_values = (
+            np.ones(len(variable)) if weights is None else weights.values
+        )
+        per_bin = pd.DataFrame({
+            "variable": variable.values, "bin_cat": bin_cat.values, "w": w_values,
+        })
+        # wiersze z NaN w variable nie wpadają do żadnego binu (NaN w bin_cat)
+        # i są pomijane przez groupby po kluczu — jak dotychczas
+        stats = per_bin.groupby("bin_cat", observed=True).apply(
+            lambda g: pd.Series({
+                "mean": st.weighted_mean(g["variable"], g["w"]),
+                "median": st.weighted_median(g["variable"], g["w"]),
+            }),
+            include_groups=False,
         )
         # mapa: string(interval) -> (od, do). Granice bierzemy z `edges` wg
         # kolejności kategorii, NIE z interval.left — najniższy przedział ma
@@ -220,8 +235,8 @@ class BucketTable:
             kind=Kind.CONTINUOUS,
             is_numeric=True,
             has_pred=has_pred,
-            total_mean=float(variable.mean()),
-            total_median=float(variable.median()),
+            total_mean=st.weighted_mean(variable, w_values),
+            total_median=st.weighted_median(variable, w_values),
         )
 
     @classmethod
@@ -235,13 +250,20 @@ class BucketTable:
         weights: pd.Series | None = None,
     ) -> "BucketTable":
         """Binowanie kwantylowe — wyznacza granice z kwantyli i deleguje do `from_bins`."""
-        edges = (
-            variable.quantile(
-                [i / n_bins for i in range(n_bins + 1)], interpolation="lower"
+        qs = [i / n_bins for i in range(n_bins + 1)]
+        if weights is None:
+            edges = (
+                variable.quantile(qs, interpolation="lower")
+                .drop_duplicates()
+                .to_list()
             )
-            .drop_duplicates()
-            .to_list()
-        )
+        else:
+            # kwantyle WAŻONE — dla wag całkowitych identyczne z kwantylami
+            # danych zreplikowanych wierszowo (spec/raport-spark.md, 3.1)
+            edges = list(dict.fromkeys(
+                st.weighted_quantile(variable, weights, q, interpolation="lower")
+                for q in qs
+            ))
         return cls.from_bins(
             variable, target, bins=edges, pred=pred, weights=weights
         )
@@ -256,19 +278,29 @@ class BucketTable:
         max_depth: int = 3,
         min_samples_split: int = 2,
         skipna: bool = True,
+        weights: str | None = None,
     ) -> "BucketTable":
-        """Binowanie drzewem decyzyjnym — wyznacza granice i deleguje do `from_bins`."""
+        """
+        Binowanie drzewem decyzyjnym — wyznacza granice i deleguje do `from_bins`.
+
+        `weights` to nazwa kolumny wag w `df`; dla wag całkowitych wynik jest
+        równy drzewu na danych zreplikowanych wierszowo.
+        """
         import buckets.tree as tree
 
-        df_tree = df[[var, target]].dropna(subset=[var]) if skipna else df[[var, target]]
+        cols = [var, target] + ([weights] if weights is not None else [])
+        df_tree = df[cols].dropna(subset=[var]) if skipna else df[cols]
         tr = tree.make_tree(
-            df_tree, [var], target, max_depth=max_depth,
+            df_tree, [var], target, weights=weights, max_depth=max_depth,
             min_samples_leaf=min_samples_split,
         )
         bounds = tree.extract_leaf_bounds(tr)
         bounds.insert(0, df[var].min() - 1)
         bounds.append(df[var].max() + 1)
-        return cls.from_bins(df[var], df[target], bins=bounds)
+        return cls.from_bins(
+            df[var], df[target], bins=bounds,
+            weights=df[weights] if weights is not None else None,
+        )
 
     @classmethod
     def from_auto(

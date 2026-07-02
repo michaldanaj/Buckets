@@ -5,8 +5,8 @@ from sklearn.tree import plot_tree
 import matplotlib.pyplot as plt
 import pandas as pd
 
-#TODO: dodać wagi
-def make_tree(df: pd.DataFrame, var:str, target: str, max_depth: int = 3, 
+def make_tree(df: pd.DataFrame, var:str, target: str, weights: str | None = None,
+              max_depth: int = 3,
               min_samples_leaf: int =50) -> DecisionTreeClassifier:
     """
     Tworzy drzewo decyzyjne na podstawie danych.
@@ -14,7 +14,14 @@ def make_tree(df: pd.DataFrame, var:str, target: str, max_depth: int = 3,
     Args:
         df (pd.DataFrame): Ramka danych z danymi.
         target (str): Nazwa kolumny docelowej.
+        weights (str, optional): Nazwa kolumny wag. Wagi są traktowane jako
+            krotność obserwacji — dla wag całkowitych drzewo jest identyczne
+            z drzewem na danych zreplikowanych wierszowo.
         max_depth (int): Maksymalna głębokość drzewa.
+        min_samples_leaf (int): Minimalna liczba obserwacji w liściu. Przy
+            wagach warunek dotyczy SUMY WAG w liściu — sklearn liczyłby
+            wiersze, więc próg jest przeliczany na `min_weight_fraction_leaf`
+            (obcięty do 0.5, maksimum dopuszczanego przez sklearn).
 
     Returns:
         DecisionTreeClassifier: Wytrenuj drzewo decyzyjne.
@@ -22,8 +29,17 @@ def make_tree(df: pd.DataFrame, var:str, target: str, max_depth: int = 3,
     X = df[var]
     y = df[target]
 
-    tree = DecisionTreeClassifier(max_depth=max_depth, min_samples_leaf=min_samples_leaf)
-    tree.fit(X, y)
+    if weights is None:
+        tree = DecisionTreeClassifier(max_depth=max_depth, min_samples_leaf=min_samples_leaf)
+        tree.fit(X, y)
+    else:
+        w = df[weights].astype(float)
+        frac = min(min_samples_leaf / float(w.sum()), 0.5)
+        tree = DecisionTreeClassifier(
+            max_depth=max_depth, min_samples_leaf=1,
+            min_weight_fraction_leaf=frac,
+        )
+        tree.fit(X, y, sample_weight=w)
 
     return tree
 

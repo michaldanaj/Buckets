@@ -294,6 +294,7 @@ def bckt_tree_stats(
     max_depth: int = 3,
     min_samples_split: int = 2,
     skipna: bool = True,
+    weights: str | None = None,
 ) -> pd.DataFrame:
     """
     Funkcja do generowania drzewa decyzyjnego na podstawie ramki danych.
@@ -305,13 +306,15 @@ def bckt_tree_stats(
         min_samples_split: Minimalna liczba próbek wymagana do podziału węzła.
         skipna: Jeśli True (domyślnie), wiersze z NaN w var są pomijane przy
             budowie drzewa. Pełny df (z NaN) jest używany do statystyk bucketu.
+        weights: Nazwa kolumny wag (krotność obserwacji) — używana zarówno
+            przy budowie drzewa, jak i w statystykach bucketów.
 
     Returns:
         DataFrame z wynikami drzewa decyzyjnego.
     """
     return BucketTable.from_tree(
         df, var, target, max_depth=max_depth,
-        min_samples_split=min_samples_split, skipna=skipna,
+        min_samples_split=min_samples_split, skipna=skipna, weights=weights,
     ).to_frame(total=True)
 
 
