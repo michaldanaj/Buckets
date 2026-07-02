@@ -60,6 +60,19 @@ def guess_column_type(var: pd.Series, discrete_threshold: int = 20) -> Analytica
         return AnalyticalType.CATEGORICAL
 
 
+def guess_role(col: str) -> Role:
+    """
+    Heurystyka roli kolumny po nazwie: `target` → TARGET, `id*` lub `*date*`
+    → SKIPPED, pozostałe → EXPLANATORY. Wspólna dla ścieżki pandas
+    (`determine_column_types`) i Spark (`spark.column_types_from_spark`).
+    """
+    if col == "target":
+        return Role.TARGET
+    if col.startswith("id") or "date" in col.lower():
+        return Role.SKIPPED
+    return Role.EXPLANATORY
+
+
 class ColumnTypes:
     """
     Przechowuje metadane kolumn ramki danych: typ analityczny i rolę każdej zmiennej.
@@ -79,6 +92,20 @@ class ColumnTypes:
     def __init__(self, df: pd.DataFrame, discrete_threshold: int = 20):
         self.discrete_threshold = discrete_threshold
         self.types = self.determine_column_types(df)
+
+    @classmethod
+    def from_frame(cls, types: pd.DataFrame,
+                   discrete_threshold: int = 20) -> "ColumnTypes":
+        """
+        Buduje obiekt z gotowej ramki metadanych (kolumny: `column_name`,
+        `dtype`, `analytical_type`, `role`; indeks = nazwy kolumn) — dla
+        źródeł, których nie da się podać jako pandas DataFrame (np. schemat
+        ramki Spark w `spark.column_types_from_spark`).
+        """
+        obj = cls.__new__(cls)
+        obj.discrete_threshold = discrete_threshold
+        obj.types = types
+        return obj
 
     @property
     def target(self) -> str:
@@ -177,12 +204,7 @@ class ColumnTypes:
         for col in df.columns:
             dtype = df[col].dtype
             analytical_type = guess_column_type(df[col], self.discrete_threshold)
-
-            role = Role.EXPLANATORY if col != "target" else Role.TARGET
-            if col.startswith("id"):
-                role = Role.SKIPPED
-            elif "date" in col.lower():
-                role = Role.SKIPPED
+            role = guess_role(col)
 
             results.append(
                 {
