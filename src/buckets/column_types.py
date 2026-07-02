@@ -8,11 +8,15 @@ class Role(StrEnum):
     - `explanatory`: Kolumna, która jest używana jako zmienna objaśniająca (cecha).
     - `target`: Kolumna, która jest używana jako zmienna objaśniana (etykieta).
     - `main_time_col`: Kolumna, która jest używana jako główna kolumna czasowa do analizowania zmian w czasie.
+    - `weights`: Kolumna z wagami obserwacji (krotność) — używana w statystykach,
+      nie analizowana jako zmienna. Przypisywana WYŁĄCZNIE jawnie
+      (setter `weights_col`), nigdy heurystycznie.
     - `skipped`: Kolumna, która jest pomijana w analizie (np. identyfikatory, daty).
     """
     EXPLANATORY = "explanatory"
     TARGET = "target"
     MAIN_TIME_COL = "main_time_col"
+    WEIGHTS = "weights"
     SKIPPED = "skipped"
 
 
@@ -119,6 +123,28 @@ class ColumnTypes:
         """
         self.types.loc[self.types["role"] == Role.MAIN_TIME_COL, "role"] = Role.SKIPPED
         self.types.loc[self.types["column_name"] == value, "role"] = Role.MAIN_TIME_COL
+
+    @property
+    def weights_col(self) -> str | None:
+        """
+        Zwraca nazwę kolumny wag lub None, jeśli nie ustawiono.
+
+        Returns:
+            str | None: Nazwa kolumny z rolą WEIGHTS.
+        """
+        result = self.types.loc[self.types["role"] == Role.WEIGHTS, "column_name"]
+        return result.values[0] if len(result) else None
+
+    @weights_col.setter
+    def weights_col(self, value: str):
+        """
+        Ustawia podaną kolumnę jako kolumnę wag obserwacji.
+
+        Args:
+            value: Nazwa kolumny, która ma otrzymać rolę WEIGHTS.
+        """
+        self.types.loc[self.types["role"] == Role.WEIGHTS, "role"] = Role.SKIPPED
+        self.types.loc[self.types["column_name"] == value, "role"] = Role.WEIGHTS
 
     def set(self, colnames: list[str], analytical_type: str):
         """
