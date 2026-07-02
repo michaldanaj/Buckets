@@ -103,7 +103,9 @@ zmienia. Warunki taniej migracji:
 
 `DistributionOverTime` (rozkład/target/pred zmiennej w czasie — dawne
 `bckt_stats_over_time`, sekcja 4.4 w [buck-refaktor-klasy.md](buck-refaktor-klasy.md))
-jest dziś projektowane jako klasa stojąca **obok** analizy zmiennej. Docelowo
+jest **już zaimplementowane** jako klasa ([over_time.py](../src/buckets/over_time.py))
+z builderem `bckt_stats_over_time` ([buck.py:71](../src/buckets/buck.py#L71)), ale stoi
+**obok** analizy zmiennej — **nie jest wpięte** w `VariableAnalysis.build()`. Docelowo
 rozkład w czasie powinien wchodzić do **domyślnego zestawu statystyk na zmienną** —
 tak jak gini, buckety i wykresy — gdy zdefiniowana jest główna kolumna czasowa
 (`Role.MAIN_TIME_COL` w `ColumnTypes`).
@@ -154,11 +156,11 @@ refaktoru BucketTable, dlatego odłożone):
    `df.groupby("by").apply(...)`. Poprawka: przekazać `include_groups=False` albo
    wybrać kolumny po `groupby`, żeby nie operować na kolumnie grupującej.
 
-2. **`More than 20 figures have been opened` (RuntimeWarning)**
-   z [buck.py](../src/buckets/buck.py) (`plot`) — figury matplotlib nie są zamykane
-   po wygenerowaniu. Przy raporcie z wieloma zmiennymi rośnie zużycie pamięci.
-   Poprawka: `plt.close(fig)` po osadzeniu wykresu (np. w `report_html` po zapisaniu
-   do base64 — częściowo już jest) albo zwracać figury i domykać je u konsumenta.
+2. ~~**`More than 20 figures have been opened` (RuntimeWarning)**~~ **(zrobione)**
+   Figury są domykane na ścieżce raportu — `report_html` woła `plt.close(element)`
+   po osadzeniu wykresu do base64 ([report_html.py:54](../src/buckets/report_html.py#L54)).
+   Sam `plot` ([buck.py](../src/buckets/buck.py)) figur nie zamyka, ale je *zwraca* —
+   domknięcie następuje u konsumenta, zgodnie z drugim wariantem poprawki.
 
 ---
 
