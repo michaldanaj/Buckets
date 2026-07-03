@@ -22,15 +22,16 @@ bezpośrednio.
 
 - [Tutorial 0 — przygotowanie środowiska i danych](#tutorial-0)
 - [Tutorial 1 — pierwsze buckety: zmienna dyskretna](#tutorial-1)
-- [Tutorial 2 — zmienna ciągła: kwantyle i jawne granice](#tutorial-2)
-- [Tutorial 3 — dyskretyzacja drzewem](#tutorial-3)
-- [Tutorial 4 — automat: `from_auto` i typy analityczne](#tutorial-4)
-- [Tutorial 5 — GINI i wagi obserwacji](#tutorial-5)
-- [Tutorial 6 — rozkład zmiennej w czasie: `DistributionOverTime`](#tutorial-6)
-- [Tutorial 7 — raport HTML dla całej ramki](#tutorial-7)
-- [Tutorial 8 (Spark) — agregat kanoniczny i pseudo-obserwacje](#tutorial-8)
-- [Tutorial 9 (Spark) — analizy na danych rzeczywistych](#tutorial-9)
-- [Tutorial 10 (Spark) — pełny raport HTML ze Sparka](#tutorial-10)
+- [Tutorial 2 — zmienna typu `Categorical`: porządek kategorii](#tutorial-2)
+- [Tutorial 3 — zmienna ciągła: kwantyle i jawne granice](#tutorial-3)
+- [Tutorial 4 — dyskretyzacja drzewem](#tutorial-4)
+- [Tutorial 5 — automat: `from_auto` i typy analityczne](#tutorial-5)
+- [Tutorial 6 — GINI i wagi obserwacji](#tutorial-6)
+- [Tutorial 7 — rozkład zmiennej w czasie: `DistributionOverTime`](#tutorial-7)
+- [Tutorial 8 — raport HTML dla całej ramki](#tutorial-8)
+- [Tutorial 9 (Spark) — agregat kanoniczny i pseudo-obserwacje](#tutorial-9)
+- [Tutorial 10 (Spark) — analizy na danych rzeczywistych](#tutorial-10)
+- [Tutorial 11 (Spark) — pełny raport HTML ze Sparka](#tutorial-11)
 - [Co dalej](#co-dalej)
 
 ---
@@ -45,8 +46,8 @@ pozostałe tutoriale.
 - [ ] Zsynchronizuj środowisko:
 
   ```bash
-  uv sync                      # rdzeń (pandas) — tutoriale 1–7
-  uv run --extra spark python  # tutoriale 8–10 (wymaga JVM 17/21)
+  uv sync                      # rdzeń (pandas) — tutoriale 1–8
+  uv run --extra spark python  # tutoriale 9–11 (wymaga JVM 17/21)
   ```
 
 - [ ] (Spark) Sprawdź Javę — Spark 4.x wymaga JVM 17 lub 21; na nowszej
@@ -57,7 +58,7 @@ pozostałe tutoriale.
   ```
 
 - [ ] Wygeneruj **dane syntetyczne** — samowystarczalne, używane w
-  tutorialach 1–8. Zapisz poniższy fragment np. jako `dane_tut.py`
+  tutorialach 1–9. Zapisz poniższy fragment np. jako `dane_tut.py`
   i importuj z niego `df`:
 
   ```python
@@ -90,7 +91,7 @@ pozostałe tutoriale.
   ```
 
 - [ ] Przywróć **dane rzeczywiste** (default of credit card clients,
-  UCI) — używane w tutorialach 9–10; są wersjonowane w repo, więc jeśli
+  UCI) — używane w tutorialach 10–11; są wersjonowane w repo, więc jeśli
   nie ma ich w katalogu `data/`:
 
   ```bash
@@ -155,7 +156,130 @@ kategorycznej klasą `BucketTable`.
 
 <a id="tutorial-2" name="tutorial-2"></a>
 
-## Tutorial 2 — zmienna ciągła: kwantyle i jawne granice
+## Tutorial 2 — zmienna typu `Categorical`: porządek kategorii
+
+**Cel:** zobaczyć, co pandasowa kategoria (zwłaszcza **uporządkowana**)
+daje w bucketach — i gdzie są pułapki.
+
+- [ ] Zbuduj uporządkowaną kategorię — `qcut` zwraca ją od razu
+  (`mały < średni < duży`); dołóż pusty poziom `XXL`, żeby zobaczyć,
+  jak pakiet traktuje kategorie bez obserwacji:
+
+  ```python
+  df["rozmiar"] = pd.qcut(
+      df["dochod"], q=[0, 0.5, 0.8, 1], labels=["mały", "średni", "duży"]
+  )
+  df["rozmiar"] = df["rozmiar"].cat.add_categories(["XXL"])
+  df["rozmiar"].dtype    # category, ordered=True
+  ```
+
+  Braki `dochod` przechodzą na braki `rozmiar` — przydadzą się za chwilę.
+
+- [ ] Sprawdź klasyfikację: `Categorical` (nawet o etykietach
+  liczbowych) to zawsze typ `categorical`:
+
+  ```python
+  import buckets.column_types as ct
+
+  ct.guess_column_type(df["rozmiar"])   # → categorical
+  ```
+
+- [ ] Policz buckety — **kolejność wierszy respektuje porządek
+  kategorii**, nie alfabet:
+
+  ```python
+  bt = BucketTable.from_discrete(df["rozmiar"], df["target"])
+  bt.to_frame()
+  ```
+
+  Oczekuj kolejności: `<NA>`, `mały`, `średni`, `duży`, `XXL`, `TOTAL` —
+  oraz malejącego `avg_target` (rozmiar rośnie z dochodem). Ta sama
+  kolejność obowiązuje na wykresie `bt.plot()`.
+
+- [ ] Zobacz, co tracisz **bez** kategorii — po rzutowaniu na string
+  grupy wracają do porządku alfabetycznego (`duży` przed `mały`):
+
+  ```python
+  BucketTable.from_discrete(
+      df["rozmiar"].astype("string"), df["target"]
+  ).to_frame()
+  ```
+
+  Uwaga: rzutuj przez `astype("string")`, nie `astype(str)` — to drugie
+  zamienia braki na literalny napis `"nan"`, który staje się osobną,
+  fałszywą grupą zamiast bina `<NA>`.
+
+- [ ] Droga powrotna — ze **stringa do kategorii**. Tak przywracasz
+  porządek zmiennej, która przyszła jako zwykły tekst (z CSV, ze Sparka,
+  z bazy):
+
+  ```python
+  roz_str = df["rozmiar"].astype("string")     # symulacja danych tekstowych
+
+  typ = pd.CategoricalDtype(["mały", "średni", "duży"], ordered=True)
+  roz_cat = roz_str.astype(typ)
+
+  BucketTable.from_discrete(roz_cat, df["target"]).to_frame()
+  ```
+
+  Kolejność wierszy znów jest kategorialna. Dwie zasady:
+
+  - wartości spoza listy `categories` (u nas `XXL`) stają się **brakami**
+    i wpadają do bina `<NA>` — literówka w liście po cichu "gubi" grupę,
+    więc porównaj `n_obs` przed i po konwersji;
+  - bez znanej z góry listy poziomów użyj `roz_str.astype("category")` —
+    kategorie zbierze z danych, ale porządek będzie alfabetyczny
+    (`ordered=False`); listę do `CategoricalDtype` możesz wtedy podać
+    ręcznie na podstawie `roz_str.dropna().unique()`.
+
+- [ ] Pusty poziom `XXL` dostaje wiersz z `n_obs=0` i `avg_target=<NA>`
+  (groupby z `observed=False`) — kategoria "widziana, ale pusta" jest
+  raportowana, a nie ukrywana. Usuń nieużywane poziomy, jeśli tego nie
+  chcesz:
+
+  ```python
+  BucketTable.from_discrete(
+      df["rozmiar"].cat.remove_unused_categories(), df["target"]
+  ).to_frame()
+  ```
+
+- [ ] **Pułapka (`spec/backlog.md`, pkt 7):** kolumna `discrete`
+  w wyniku jest stringifikowana — porządek kategorii niesie *kolejność
+  wierszy*, ale nie typ kolumny. Sortowanie po niej jest więc
+  alfabetyczne:
+
+  ```python
+  bt.to_frame(sort_by="discrete")   # XXL, duży, mały, średni — NIE rób tak
+  bt.to_frame()                     # kolejność kategorialna — zostań przy domyślnej
+  ```
+
+- [ ] W czasie: `DistributionOverTime` (szerzej w Tutorialu 7) też
+  układa kolumny pivotów wg
+  porządku kategorii. Parametr `var_order` przydaje się, gdy dane
+  przychodzą jako zwykłe stringi (np. ze Sparka — parquet z pandasową
+  kategorią Spark czyta jako string i porządek wraca do alfabetycznego,
+  patrz `raport_spark_default_amend.py`):
+
+  ```python
+  from buckets.over_time import DistributionOverTime
+
+  dot = DistributionOverTime(
+      df["miesiac"], df["rozmiar"].astype("string"), df["target"],
+      var_order=["mały", "średni", "duży"],
+  )
+  dot.distribution()
+  ```
+
+**Sprawdź się:** tabela z kategorii ma wiersze w porządku
+`mały → duży`, wersja stringowa — alfabetycznie; `XXL` znika po
+`remove_unused_categories()`; kolumny `dot.distribution()` idą w
+kolejności z `var_order`.
+
+---
+
+<a id="tutorial-3" name="tutorial-3"></a>
+
+## Tutorial 3 — zmienna ciągła: kwantyle i jawne granice
 
 **Cel:** zdyskretyzować zmienną ciągłą i odczytać zależność targetu od
 jej poziomu.
@@ -191,9 +315,9 @@ w logicie z Tutorialu 0); wiersz `TOTAL` ma `mean`/`median` całej próby.
 
 ---
 
-<a id="tutorial-3" name="tutorial-3"></a>
+<a id="tutorial-4" name="tutorial-4"></a>
 
-## Tutorial 3 — dyskretyzacja drzewem
+## Tutorial 4 — dyskretyzacja drzewem
 
 **Cel:** pozwolić drzewu decyzyjnemu (sklearn) wyznaczyć granice binów
 tak, żeby różnicowały target.
@@ -233,9 +357,9 @@ powinno mieć gini ≥ kwantyli — granice dobiera pod target.
 
 ---
 
-<a id="tutorial-4" name="tutorial-4"></a>
+<a id="tutorial-5" name="tutorial-5"></a>
 
-## Tutorial 4 — automat: `from_auto` i typy analityczne
+## Tutorial 5 — automat: `from_auto` i typy analityczne
 
 **Cel:** nie decydować ręcznie, czy zmienna jest dyskretna, czy ciągła.
 
@@ -273,9 +397,9 @@ powinno mieć gini ≥ kwantyli — granice dobiera pod target.
 
 ---
 
-<a id="tutorial-5" name="tutorial-5"></a>
+<a id="tutorial-6" name="tutorial-6"></a>
 
-## Tutorial 5 — GINI i wagi obserwacji
+## Tutorial 6 — GINI i wagi obserwacji
 
 **Cel:** ocenić moc predykcyjną zmiennych i zrozumieć kontrakt wag
 (waga = krotność obserwacji).
@@ -291,7 +415,7 @@ powinno mieć gini ≥ kwantyli — granice dobiera pod target.
 
   Uwaga: `st.gini` wymaga porządku wartości — dla zmiennej
   kategorycznej (`segment`) licz gini z tabeli bucketów
-  (`bt.gini_discrete()`) albo na jej wersji po `score` (Tutorial 3).
+  (`bt.gini_discrete()`) albo na jej wersji po `score` (Tutorial 4).
 
 - [ ] Gini **w czasie** — parametr `by` zwraca Series per okres:
 
@@ -321,9 +445,9 @@ oba asserty przechodzą bez wyjątku.
 
 ---
 
-<a id="tutorial-6" name="tutorial-6"></a>
+<a id="tutorial-7" name="tutorial-7"></a>
 
-## Tutorial 6 — rozkład zmiennej w czasie: `DistributionOverTime`
+## Tutorial 7 — rozkład zmiennej w czasie: `DistributionOverTime`
 
 **Cel:** zbadać stabilność zmiennej i targetu między okresami.
 
@@ -366,9 +490,9 @@ ten wykres wyłapuje przesunięcia populacji.
 
 ---
 
-<a id="tutorial-7" name="tutorial-7"></a>
+<a id="tutorial-8" name="tutorial-8"></a>
 
-## Tutorial 7 — raport HTML dla całej ramki
+## Tutorial 8 — raport HTML dla całej ramki
 
 **Cel:** jedna komenda → raport ze wszystkimi zmiennymi: gini (pełne
 i po dyskretyzacji), gini w czasie, tabela dyskretyzacji, wykresy.
@@ -414,13 +538,14 @@ i po dyskretyzacji), gini w czasie, tabela dyskretyzacji, wykresy.
   ```
 
 **Sprawdź się:** raport ma sekcję dla `segment`, `dochod`
-i `liczba_dzieci`; `pred` i `miesiac` nie są analizowane jako zmienne.
+i `liczba_dzieci` (oraz `rozmiar`, jeśli ramka niesie ją z Tutorialu 2);
+`pred` i `miesiac` nie są analizowane jako zmienne.
 
 ---
 
-<a id="tutorial-8" name="tutorial-8"></a>
+<a id="tutorial-9" name="tutorial-9"></a>
 
-## Tutorial 8 (Spark) — agregat kanoniczny i pseudo-obserwacje
+## Tutorial 9 (Spark) — agregat kanoniczny i pseudo-obserwacje
 
 **Cel:** zrozumieć most Spark→pandas: dane wierszowe **nie schodzą**
 z klastra — schodzi mały agregat, który wchodzi w standardowy pipeline
@@ -476,14 +601,14 @@ Tutorial 0).
   ```
 
 **Sprawdź się:** assert przechodzi — to ta sama równoważność
-waga=krotność co w Tutorialu 5; dowód i kontrakt agregatu:
+waga=krotność co w Tutorialu 6; dowód i kontrakt agregatu:
 `spec/raport-spark.md`, sekcja 1.
 
 ---
 
-<a id="tutorial-9" name="tutorial-9"></a>
+<a id="tutorial-10" name="tutorial-10"></a>
 
-## Tutorial 9 (Spark) — analizy na danych rzeczywistych
+## Tutorial 10 (Spark) — analizy na danych rzeczywistych
 
 **Cel:** na danych credit card (format long, klient × miesiąc)
 policzyć rozkład w czasie, gini w czasie i dyskretyzację drzewem —
@@ -542,11 +667,11 @@ limit, niższe ryzyko.
 
 ---
 
-<a id="tutorial-10" name="tutorial-10"></a>
+<a id="tutorial-11" name="tutorial-11"></a>
 
-## Tutorial 10 (Spark) — pełny raport HTML ze Sparka
+## Tutorial 11 (Spark) — pełny raport HTML ze Sparka
 
-**Cel:** raport jak w Tutorialu 7, ale źródłem jest ramka Spark —
+**Cel:** raport jak w Tutorialu 8, ale źródłem jest ramka Spark —
 `SparkSource` liczy per zmienna agregat (jeden job, cache) i podaje
 raportowi pseudo-obserwacje.
 
