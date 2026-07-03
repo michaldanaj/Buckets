@@ -115,3 +115,55 @@ class TestWagi:
                 dot_w.avg_target_frame(), dot_rep.avg_target_frame()
             )
             pd.testing.assert_series_equal(dot_w.estim(), dot_rep.estim())
+
+
+class TestInwariantEstim:
+    """
+    Inwarianty wykrywające błędy z realnych danych (credit_limit z brakami):
+    1) buck.assign na ciągłej z pd.NA w Int64 przypisywał ~26% obserwacji do
+       złych przedziałów (pd.cut z krawędziami object z kolumn Float64),
+    2) estim pomijał obserwacje z brakiem zmiennej (pred=NaN), przez co
+       średnia estymaty nie równała się średniej targetu.
+    """
+
+    @staticmethod
+    def dane_z_brakami(n=2000, seed=5):
+        rng = np.random.default_rng(seed)
+        df = pd.DataFrame({
+            "x": pd.array(rng.integers(10_000, 500_000, size=n), dtype="Int64"),
+            "czas": rng.choice(["2024-01", "2024-02", "2024-03"], size=n),
+        })
+        df["target"] = (rng.random(n) < 0.1 + 0.4 * (df["x"] < 100_000)).astype(int)
+        df.loc[df.sample(frac=0.1, random_state=1).index, "x"] = pd.NA
+        return df
+
+    def test_assign_poprawny_przy_brakach_w_int64(self):
+        import buckets.buck as buck
+
+        df = self.dane_z_brakami()
+        discrete = buck.bckt_tree_stats(df, "x", "target", min_samples_split=100)
+        x = buck.assign(df, "x", discrete, val="avg_target")
+        x = pd.to_numeric(pd.Series(x).astype("object"), errors="coerce")
+
+        # ręczne przypisanie po granicach od/do
+        bc = discrete[(discrete["bin"] != "TOTAL") & discrete["od"].notna()]
+        oczekiwane = pd.Series(np.nan, index=df.index)
+        for _, row in bc.iterrows():
+            maska = (df["x"] > row["od"]) & (df["x"] <= row["do"])
+            # include_lowest dla pierwszego przedziału
+            if row["od"] == bc["od"].min():
+                maska = maska | (df["x"] == row["od"])
+            oczekiwane[maska.fillna(False)] = float(row["avg_target"])
+        pd.testing.assert_series_equal(x, oczekiwane, check_names=False)
+
+    def test_srednia_estymaty_rowna_sredniej_targetu(self):
+        df = self.dane_z_brakami()
+        types = ct.ColumnTypes(df)
+        types.time_col = "czas"
+        va = DatasetReport(df, types).analyses()["x"]
+        dot = va.dist_over_time
+
+        estim = dot.estim()
+        counts = dot.counts_frame()["TOTAL"].drop("TOTAL")
+        srednia_estim = (estim * counts).sum() / counts.sum()
+        assert srednia_estim == pytest.approx(df["target"].mean(), abs=1e-12)

@@ -124,10 +124,18 @@ class DistributionOverTime:
 
     # --------------------------------------------------- agregaty per okres
     def _weighted_mean_by_time(self, value_col: str) -> pd.Series:
-        """Ważona średnia `value_col` per okres: sum(w*v)/sum(w)."""
+        """
+        Ważona średnia `value_col` per okres: sum(w*v)/sum(w).
+
+        Pary z brakiem wartości są pomijane w liczniku I mianowniku —
+        inaczej braki zaniżałyby średnią (NaN w sumie licznika liczy się
+        jak 0, a jego waga zostawałaby w mianowniku).
+        """
         tmp = self._df
-        num = (tmp["weights"] * tmp[value_col]).groupby(tmp["czas"]).sum()
-        den = tmp["weights"].groupby(tmp["czas"]).sum()
+        mask = tmp[value_col].notna()
+        w = tmp.loc[mask, "weights"]
+        num = (w * tmp.loc[mask, value_col]).groupby(tmp.loc[mask, "czas"]).sum()
+        den = w.groupby(tmp.loc[mask, "czas"]).sum()
         return num / den
 
     def avg_target_total(self) -> pd.Series:

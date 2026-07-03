@@ -121,9 +121,15 @@ class VariableAnalysis:
             # var = etykieta bucketu, pred = przypisany avg_target (-> estim)
             x_label = buck.assign(df, var=variable, buckets=discrete, val="bin")
             x_label = pd.Series(x_label).astype("string").fillna(NA_BIN_NAME)
+            # pred dla braków zmiennej: avg_target bucketu <NA> (assign go nie
+            # mapuje) — bez tego średnia estymaty != średnia targetu
+            pred = pd.to_numeric(pd.Series(x).astype("object"), errors="coerce")
+            na_avg = discrete.loc[discrete["bin"] == NA_BIN_NAME, "avg_target"]
+            if len(na_avg):
+                pred = pred.fillna(float(na_avg.iloc[0]))
             var_order = discrete.loc[discrete["bin"] != "TOTAL", "bin"].tolist()
             dist_over_time = DistributionOverTime(
-                time_series, x_label, df[types.target], pred=x,
+                time_series, x_label, df[types.target], pred=pred,
                 weights=weights, var_order=var_order,
             )
             fig_distribution = trellis.plot_distribution(dist_over_time, variable)
