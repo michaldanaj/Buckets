@@ -180,7 +180,12 @@ def aggregate_variable(
     """
     F = _functions()
 
-    if sdf.filter(F.col(target).isNull()).limit(1).count() > 0:
+    # w Sparku NaN != NULL — dla targetu zmiennoprzecinkowego brakiem jest
+    # jedno i drugie (NaN po cichu zepsułby sumy agregatu)
+    missing = F.col(target).isNull()
+    if dict(sdf.dtypes)[target] in ("float", "double"):
+        missing = missing | F.isnan(target)
+    if sdf.filter(missing).limit(1).count() > 0:
         raise ValueError("W zmiennej 'target' nie może być braków danych!")
 
     numeric = dict(sdf.dtypes)[var] not in ("string", "boolean")
