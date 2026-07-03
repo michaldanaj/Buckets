@@ -56,7 +56,11 @@ class DistributionOverTime:
             }
         )
         if self._has_pred:
-            self._df["pred"] = pred.values
+            # pred bywa Categorical (np. wynik buck.assign przez pd.cut) —
+            # koercja do float, żeby ważone średnie działały
+            self._df["pred"] = pd.to_numeric(
+                pd.Series(pred.values).astype("object"), errors="coerce"
+            )
 
         self._var_order = var_order
         self._cache: dict[str, pd.DataFrame] = {}

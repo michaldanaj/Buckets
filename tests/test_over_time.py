@@ -36,6 +36,17 @@ class TestAkcesoryPerOkres:
         assert wyn.loc[1] == pytest.approx(0.15)     # (0.1 + 0.2) / 2
         assert wyn.loc[2] == pytest.approx(1.0 / 3)  # (0.3*2 + 0.4) / 3
 
+    def test_estim_z_pred_categorical(self):
+        # buck.assign dla ciągłej zwraca Categorical (pd.cut) — estim ma działać
+        dot = DistributionOverTime(
+            czas=pd.Series([1, 1, 2]),
+            var=pd.Series(["a", "b", "a"]),
+            target=pd.Series([0, 1, 1]),
+            pred=pd.Series(pd.Categorical([0.2, 0.4, 0.2])),
+        )
+        assert dot.estim().loc[1] == pytest.approx(0.3)
+        assert dot.avg_pred().loc[1, "a"] == pytest.approx(0.2)
+
     def test_estim_none_bez_pred(self):
         dot = DistributionOverTime(
             pd.Series([1, 2]), pd.Series(["a", "a"]), pd.Series([0, 1])
