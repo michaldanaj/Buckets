@@ -257,8 +257,14 @@ def assign(df, var, buckets, val) -> pd.Series:
 
     # TODO: obsłużyć przypadek gdy buckets zawiera jednocześnie wiersze continuous i discrete (union)
     if buckets_continuous.shape[0] > 0:
-        # Określamy granice przedziałów
-        bins = np.unique(np.sort(buckets_continuous[["od", "do"]].values.flatten()))
+        # Określamy granice przedziałów.
+        # KONIECZNIE float64: od/do to nullable Float64, a .values daje tablicę
+        # object — pd.cut z krawędziami object na danych z pd.NA przypisuje
+        # obserwacje do złych przedziałów (bug ujawniony na credit_limit
+        # z brakami: ~26% błędnych przypisań).
+        bins = np.unique(
+            buckets_continuous[["od", "do"]].astype(float).to_numpy().ravel()
+        )
         # print('2')
         # print(bins)
 
