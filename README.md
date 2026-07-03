@@ -165,6 +165,13 @@ report_html.save(report.to_html(), "result/raport.html")
 `pyspark` jest zależnością opcjonalną (`buckets[spark]`) i importowaną
 leniwie — rdzeń pakietu działa bez Sparka.
 
+Przykładowe skrypty end-to-end: `raport_spark_default*.py` w korzeniu
+repozytorium (odpowiedniki pandasowych `test_raport_default*.py`).
+
+> **Java:** Spark 4.x wymaga JVM 17 lub 21. Na nowszej Javie (24+) odczyt
+> parquet pada z `getSubject is not supported` — wtedy wskaż starszą, np.:
+> `JAVA_HOME=/usr/lib/jvm/temurin-21-jdk uv run python raport_spark_default.py`
+
 ## Rozwój
 
 ```bash
