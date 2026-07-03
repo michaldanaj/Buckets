@@ -52,7 +52,11 @@ class DistributionOverTime:
                 "czas": czas.values,
                 "var": var.values,
                 "target": target.values,
-                "weights": weights.values,
+                # zawsze float: sumy wag mają jeden dtype niezależnie od tego,
+                # czy wagi podano (int/float), czy domyślne jedynki
+                "weights": pd.to_numeric(
+                    pd.Series(weights.values), errors="coerce"
+                ).astype(float),
             }
         )
         if self._has_pred:

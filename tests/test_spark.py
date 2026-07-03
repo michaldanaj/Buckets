@@ -125,6 +125,17 @@ class TestSparkSourceReport:
         an_spark, an_rep = analyses
         pd.testing.assert_frame_equal(an_spark[var].discrete, an_rep[var].discrete)
 
+    @pytest.mark.parametrize("var", ["kat", "x"])
+    def test_rozklady_w_czasie_rowne(self, analyses, var):
+        an_spark, an_rep = analyses
+        dot_s = an_spark[var].dist_over_time
+        dot_r = an_rep[var].dist_over_time
+        pd.testing.assert_frame_equal(dot_s.counts_frame(), dot_r.counts_frame())
+        pd.testing.assert_frame_equal(
+            dot_s.avg_target_frame(), dot_r.avg_target_frame()
+        )
+        pd.testing.assert_series_equal(dot_s.estim(), dot_r.estim())
+
     def test_raport_html_generuje_sie(self, sdf):
         types = sp.column_types_from_spark(sdf)
         types.weights_col = "w"
