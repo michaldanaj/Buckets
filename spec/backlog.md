@@ -204,3 +204,20 @@ od litery kontraktu. Propozycja: w `from_discrete` zachować typ `Categorical`
 zmiennej wejściowej w kolumnie `discrete` (z porządkiem), zamiast pozwalać
 `convert_dtypes` zrzucić ją do `string`. Trzeba wtedy obsłużyć wiersz `TOTAL`
 (dodanie kategorii `"TOTAL"` albo `pd.NA`) bez psucia typu.
+
+---
+
+## 8. Fasada `Dataset` — przezroczyste API pandas/Spark
+
+Użytkownik raz deklaruje, na czym pracuje (`bk.Dataset(df)` albo
+`bk.Dataset(sdf)`), a potem każdą analizę woła identycznie — przez nazwy
+kolumn — bez ręcznego mostu `aggregate_variable` → `to_pseudo_obs` i bez
+pilnowania wag pseudo-obserwacji. Cała różnica silników zamyka się
+w jednym punkcie (`_frame_for(var)`); metody zwracają istniejące obiekty
+rdzenia (`BucketTable`, `DistributionOverTime`, `DatasetReport`).
+Fundament już istnieje: kontrakt `frame_for`/`n_levels`
+(`PandasSource`/`SparkSource`) używany dziś tylko przez raport.
+
+Pełna specyfikacja (API, mechanika, przecieki abstrakcji — `score`,
+mikro-binowanie, porządek `Categorical` — decyzje i plan etapów):
+[dataset-fasada.md](dataset-fasada.md).
