@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-Testy rozszerzeń `DistributionOverTime` (spec/raport-w-czasie.md, sekcja 3.1):
+Testy rozszerzeń `DistributionOverTime` (spec/2026-07-03-raport-w-czasie.md, sekcja 3.1):
 var_order, avg_target_total, estim, ramki prezentacyjne z TOTAL-ami oraz
 równoważność wag (replikacja) i pseudo-obserwacji.
 """
@@ -52,6 +52,21 @@ class TestAkcesoryPerOkres:
             pd.Series([1, 2]), pd.Series(["a", "a"]), pd.Series([0, 1])
         )
         assert dot.estim() is None
+
+    def test_estim_okres_bez_predykcji_daje_nan_ale_zostaje_w_indeksie(self):
+        # okres 2 ma wyłącznie brakującą pred -> 0/0 = NaN, ale okres nie wypada
+        # z indeksu (musi się pokrywać z avg_target_total, inaczej plot_pit_ttc
+        # rysowałby serie o różnej długości)
+        dot = DistributionOverTime(
+            czas=pd.Series([1, 1, 2, 2]),
+            var=pd.Series(["a", "b", "a", "b"]),
+            target=pd.Series([0, 1, 1, 0]),
+            pred=pd.Series([0.1, 0.2, np.nan, np.nan]),
+        )
+        estim = dot.estim()
+        assert list(estim.index) == list(dot.avg_target_total().index)
+        assert estim.loc[1] == pytest.approx(0.15)      # (0.1 + 0.2) / 2
+        assert pd.isna(estim.loc[2])                     # brak predykcji
 
 
 class TestVarOrder:

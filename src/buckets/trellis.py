@@ -1,7 +1,11 @@
 # coding: utf-8
 """
 Wykresy w układzie Trellis (lattice) dla `DistributionOverTime` —
-odpowiedniki wykresów z raportu MDBinom (spec/raport-w-czasie.md).
+odpowiedniki wykresów z raportu MDBinom (spec/2026-07-03-raport-w-czasie.md).
+
+Warstwa implementacyjna: te funkcje są delegatami metod
+`DistributionOverTime.plot_*` (spójnie z `buck.plot` pod `BucketTable.plot`,
+spec/2026-07-07-dist-over-time.md §3–4) — wołaj przez metody obiektu.
 
 Implementacja na `seaborn.FacetGrid` (wprost implementuje układ trellis:
 siatka paneli ze wspólnymi osiami, pasek tytułowy nad panelem, zawijanie
@@ -18,12 +22,16 @@ Odpowiedniki (nazwy plików PNG z przykładowego raportu R w raport_aa/):
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from buckets.over_time import DistributionOverTime
+if TYPE_CHECKING:
+    # tylko dla adnotacji (są łańcuchami dzięki `from __future__`); import
+    # runtime'owy tworzyłby cykl over_time <-> trellis
+    from buckets.over_time import DistributionOverTime
 
 #: kolory nawiązujące do lattice/MDBinom
 LINE_COLOR = "#0080ff"          # niebieski punkt-linia (type='b' w lattice)

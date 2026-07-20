@@ -4,14 +4,14 @@ Klasy raportowe: `VariableAnalysis` (komplet analizy jednej zmiennej) oraz
 `DatasetReport` (orkiestracja po kolumnach ramki wg ról z `ColumnTypes`).
 
 Dostęp do danych przechodzi przez "źródło per zmienna" (`PandasSource`;
-docelowo także `SparkSource` — spec/raport-spark.md, sekcja 4.2): analiza
+docelowo także `SparkSource` — spec/2026-07-02-raport-spark.md, sekcja 4.2): analiza
 dostaje małą ramkę [zmienna, target, czas?, wagi?] zamiast całego zbioru.
 Dzięki temu ścieżka pandas i ścieżka zagregowana (pseudo-obserwacje) dzielą
 jeden kod raportu.
 
 Na tym etapie `VariableAnalysis` ma sztywne pola (gini, wykresy, dyskretyzacja).
 Docelowo ma się stać otwartą kolekcją elementów `ReportElement` — patrz
-spec/backlog.md, pkt 1. `to_report_payload()` zachowuje obecny pozycyjny
+spec/2026-05-31-backlog.md, pkt 1. `to_report_payload()` zachowuje obecny pozycyjny
 kontrakt listy dla report_html na czas migracji.
 """
 
@@ -25,7 +25,6 @@ import pandas as pd
 import buckets.buck as buck
 import buckets.column_types as ct
 import buckets.statitics as st
-import buckets.trellis as trellis
 from buckets.bucket_table import NA_BIN_NAME
 from buckets.over_time import DistributionOverTime
 
@@ -51,7 +50,7 @@ class VariableAnalysis:
     gini_over_time: pd.DataFrame | None = None
     fig_buckets: "plt.Figure | None" = None
     fig_gini_over_time: "plt.Figure | None" = None
-    # sekcje "w czasie" wzorowane na MDBinom (spec/raport-w-czasie.md);
+    # sekcje "w czasie" wzorowane na MDBinom (spec/2026-07-03-raport-w-czasie.md);
     # wypełniane tylko gdy zdefiniowano time_col
     dist_over_time: DistributionOverTime | None = None
     fig_distribution: "plt.Figure | None" = None
@@ -132,14 +131,10 @@ class VariableAnalysis:
                 time_series, x_label, df[types.target], pred=pred,
                 weights=weights, var_order=var_order,
             )
-            fig_distribution = trellis.plot_distribution(dist_over_time, variable)
-            fig_target_by_bucket = trellis.plot_avg_target_by_bucket(
-                dist_over_time, variable
-            )
-            fig_target_by_period = trellis.plot_avg_target_by_period(
-                dist_over_time, variable
-            )
-            fig_pit_ttc = trellis.plot_pit_ttc(dist_over_time, variable)
+            fig_distribution = dist_over_time.plot_distribution(variable)
+            fig_target_by_bucket = dist_over_time.plot_avg_target_by_bucket(variable)
+            fig_target_by_period = dist_over_time.plot_avg_target_by_period(variable)
+            fig_pit_ttc = dist_over_time.plot_pit_ttc(variable)
 
         fig_buckets = buck.plot(buckets, variable)
 
@@ -169,7 +164,7 @@ class VariableAnalysis:
         """
         Adapter do report_html — pozycyjna lista elementów (gini jako pierwszy).
 
-        Kolejność sekcji jak w raporcie MDBinom (spec/raport-w-czasie.md, 3.3):
+        Kolejność sekcji jak w raporcie MDBinom (spec/2026-07-03-raport-w-czasie.md, 3.3):
         Discrimination -> PIT/TTC -> Buckets -> Distribution -> Average target.
         Ramki pivotowe wchodzą po reset_index, bo report_html renderuje tabele
         z index=False.
@@ -206,7 +201,7 @@ class PandasSource:
     """
     Źródło danych per zmienna dla `DatasetReport` — ścieżka pandas.
 
-    Kontrakt (wspólny z przyszłym `SparkSource`, spec/raport-spark.md 4.2):
+    Kontrakt (wspólny z przyszłym `SparkSource`, spec/2026-07-02-raport-spark.md 4.2):
     `frame_for(var)` zwraca ramkę z kolumnami [var, target, czas?, wagi?]
     o oryginalnych nazwach, `n_levels(var)` — liczbę poziomów zmiennej.
     """

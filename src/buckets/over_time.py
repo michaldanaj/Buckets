@@ -8,13 +8,18 @@ Zastępuje dawną funkcję `bckt_stats_over_time`, która zwracała listę pozyc
 dostępne przez nazwane akcesory — co usuwa kruchy kontrakt listy i godzi
 rozbieżne warianty API (pojedynczy pivot vs lista czterech).
 
-Pivoty liczone leniwie i cache'owane. Szczegóły: spec/buck-refaktor-klasy.md (4.4).
+Model jak w `BucketTable`: rdzeń = JEDEN agregat czas × var, liczony raz
+w konstruktorze; surowe obserwacje nie są zatrzymywane. Wszystkie akcesory
+wyprowadzają wyniki z rdzenia, a wykresy są metodami obiektu.
+Szczegóły: spec/2026-07-07-dist-over-time.md.
 """
 
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+
+import buckets.trellis as trellis
 
 
 class DistributionOverTime:
@@ -39,6 +44,9 @@ class DistributionOverTime:
                 (np. kolejność wierszy tabeli dyskretyzacji — odpowiednik
                 `ordered(levels=...)` z MDBinom). Poziomy spoza danych są
                 pomijane; poziomy nienazwane lądują na końcu.
+
+        Konstruktor liczy rdzeń-agregat (sumy ważone w przecięciu czas × var)
+        i nie zatrzymuje surowych obserwacji — pamięć O(okresy × buckety).
         """
         if target.isnull().any():
             raise ValueError("W zmiennej 'target' nie może być braków danych!")
@@ -47,27 +55,34 @@ class DistributionOverTime:
             weights = pd.Series(np.ones(len(var)), index=var.index)
 
         self._has_pred = pred is not None
-        self._df = pd.DataFrame(
-            {
-                "czas": czas.values,
-                "var": var.values,
-                "target": target.values,
-                # zawsze float: sumy wag mają jeden dtype niezależnie od tego,
-                # czy wagi podano (int/float), czy domyślne jedynki
-                "weights": pd.to_numeric(
-                    pd.Series(weights.values), errors="coerce"
-                ).astype(float),
-            }
-        )
+        self._var_order = var_order
+
+        # zawsze float: sumy wag mają jeden dtype niezależnie od tego,
+        # czy wagi podano (int/float), czy domyślne jedynki
+        w = pd.to_numeric(pd.Series(weights.values), errors="coerce").astype(float)
+        agg = pd.DataFrame({
+            "czas": czas.values,
+            "var": var.values,
+            "sum_w": w,
+            "sum_w_target": w * pd.Series(target.values).astype(float),
+        })
         if self._has_pred:
             # pred bywa Categorical (np. wynik buck.assign przez pd.cut) —
             # koercja do float, żeby ważone średnie działały
-            self._df["pred"] = pd.to_numeric(
+            pred_num = pd.to_numeric(
                 pd.Series(pred.values).astype("object"), errors="coerce"
             )
+            # licznik ważonej średniej pred (pary z brakiem pred pomijane —
+            # NaN nie wchodzi do sumy) oraz osobny mianownik (waga tylko tam,
+            # gdzie pred istnieje) — dzisiejsza semantyka estim()
+            agg["sum_w_pred"] = w * pred_num
+            agg["sum_w_pred_obs"] = w.where(pred_num.notna())
 
-        self._var_order = var_order
-        self._cache: dict[str, pd.DataFrame] = {}
+        # rdzeń: JEDEN agregat czas × var, niemutowalny nośnik statystyk.
+        # observed=False jawnie: gdy `var` jest Categorical, nieużywane poziomy
+        # zostają jako kolumny zerowe (zachowanie starego pivot_table) — bez
+        # tego przyszły pandas domyślnie by je usunął, zmieniając zestaw kolumn.
+        self._core = agg.groupby(["czas", "var"], sort=True, observed=False).sum()
 
     @property
     def has_pred(self) -> bool:
@@ -81,70 +96,44 @@ class DistributionOverTime:
         rest = [c for c in pivot.columns if c not in known]
         return pivot[known + rest]
 
-    def _weighted_pivot(self, value_col: str) -> pd.DataFrame:
-        """Pivot sumy `weights * value_col` w przecięciu czas × var."""
-        tmp = self._df.copy()
-        tmp["_wv"] = tmp["weights"] * tmp[value_col]
-        return self._order_columns(tmp.pivot_table(
-            index="czas", columns="var", values="_wv", aggfunc="sum", fill_value=0
-        ))
+    def _pivot(self, col: str) -> pd.DataFrame:
+        """Rozwija kolumnę rdzenia do pivotu okres × var (brakujące pary → 0)."""
+        pivot = self._core[col].unstack("var").fillna(0.0)
+        pivot.index.name = "czas"
+        pivot.columns.name = "var"
+        return self._order_columns(pivot)
 
     def counts(self) -> pd.DataFrame:
         """Sumy wag dla każdej wartości `var` w przecięciu z okresami (liczności w czasie)."""
-        if "counts" not in self._cache:
-            self._cache["counts"] = self._order_columns(self._df.pivot_table(
-                index="czas", columns="var", values="weights",
-                aggfunc="sum", fill_value=0,
-            ))
-        return self._cache["counts"]
+        return self._pivot("sum_w")
 
     def distribution(self) -> pd.DataFrame:
         """Rozkład znormalizowany — udział wartości `var` w obrębie każdego okresu (suma = 1)."""
-        if "distribution" not in self._cache:
-            counts = self.counts()
-            self._cache["distribution"] = counts.div(counts.sum(axis=1), axis=0)
-        return self._cache["distribution"]
+        counts = self.counts()
+        return counts.div(counts.sum(axis=1), axis=0)
 
     def avg_target(self) -> pd.DataFrame:
         """Ważona średnia targetu dla każdej wartości `var` w okresie."""
-        if "avg_target" not in self._cache:
-            # mianownik: suma wag; 0 → NA, by 0/0 dało NA zamiast np.nan
-            denom = self.counts().replace(0, pd.NA)
-            self._cache["avg_target"] = self._weighted_pivot("target") / denom
-        return self._cache["avg_target"]
+        # mianownik: suma wag; 0 → NA, by 0/0 dało NA zamiast np.nan
+        denom = self.counts().replace(0, pd.NA)
+        return self._pivot("sum_w_target") / denom
 
     def avg_pred(self) -> pd.DataFrame | None:
         """Ważona średnia predykcji w okresie, lub None gdy `pred` nie podano."""
         if not self._has_pred:
             return None
-        if "avg_pred" not in self._cache:
-            denom = self.counts().replace(0, pd.NA)
-            self._cache["avg_pred"] = self._weighted_pivot("pred") / denom
-        return self._cache["avg_pred"]
+        denom = self.counts().replace(0, pd.NA)
+        return self._pivot("sum_w_pred") / denom
 
     # --------------------------------------------------- agregaty per okres
-    def _weighted_mean_by_time(self, value_col: str) -> pd.Series:
-        """
-        Ważona średnia `value_col` per okres: sum(w*v)/sum(w).
-
-        Pary z brakiem wartości są pomijane w liczniku I mianowniku —
-        inaczej braki zaniżałyby średnią (NaN w sumie licznika liczy się
-        jak 0, a jego waga zostawałaby w mianowniku).
-        """
-        tmp = self._df
-        mask = tmp[value_col].notna()
-        w = tmp.loc[mask, "weights"]
-        num = (w * tmp.loc[mask, value_col]).groupby(tmp.loc[mask, "czas"]).sum()
-        den = w.groupby(tmp.loc[mask, "czas"]).sum()
-        return num / den
-
     def avg_target_total(self) -> pd.Series:
         """
         Średni target per okres, po wszystkich wartościach `var`
         (odpowiednik wiersza TOTAL z `avg_t_tbl` w MDBinom) — szereg
-        „obserwowany" wykresu PIT/TTC.
+        „obserwowany" wykresu PIT/TTC. Z rdzenia: Σ_var sum_w_target / Σ_var sum_w.
         """
-        return self._weighted_mean_by_time("target")
+        g = self._core.groupby(level="czas", sort=True)
+        return g["sum_w_target"].sum() / g["sum_w"].sum()
 
     def estim(self) -> pd.Series | None:
         """
@@ -153,10 +142,17 @@ class DistributionOverTime:
         Gdy `pred` to przypisany avg_target bucketu, jest to prognoza targetu
         w okresie wynikająca wyłącznie ze zmiany struktury bucketów — szereg
         „estymowany" wykresu PIT/TTC. None, gdy `pred` nie podano.
+
+        Pary z brakiem `pred` są pomijane w liczniku I mianowniku (osobny
+        mianownik `sum_w_pred_obs`) — inaczej braki zaniżałyby średnią. Okres
+        bez ani jednej predykcji daje `NaN` (0/0), ale **zostaje w indeksie** —
+        indeks `estim()` pokrywa się z `avg_target_total()`, więc `plot_pit_ttc`
+        rysuje wtedy lukę zamiast urywać serię.
         """
         if not self._has_pred:
             return None
-        return self._weighted_mean_by_time("pred")
+        g = self._core.groupby(level="czas", sort=True)
+        return g["sum_w_pred"].sum() / g["sum_w_pred_obs"].sum()
 
     def bucket_order(self) -> list:
         """Kolejność poziomów `var` używana w kolumnach pivotów."""
@@ -191,8 +187,26 @@ class DistributionOverTime:
         sum_target = (self.avg_target() * counts).sum(axis=0)
         total_row = sum_target / counts.sum(axis=0)
         total_row["TOTAL"] = (
-            (self._df["weights"] * self._df["target"]).sum()
-            / self._df["weights"].sum()
+            self._core["sum_w_target"].sum() / self._core["sum_w"].sum()
         )
         wyn.loc["TOTAL"] = total_row
         return wyn
+
+    # ----------------------------------------------------------- wykresy
+    # Wykresy jako metody obiektu (spójnie z BucketTable.plot) — delegują do
+    # modułu implementacyjnego `trellis`; wołający sam zamyka figurę.
+    def plot_distribution(self, title: str | None = None):
+        """Panel na bucket; słupki = udział bucketu w kolejnych okresach."""
+        return trellis.plot_distribution(self, title)
+
+    def plot_avg_target_by_bucket(self, title: str | None = None):
+        """Panel na bucket; średni target w czasie (punkty połączone linią)."""
+        return trellis.plot_avg_target_by_bucket(self, title)
+
+    def plot_avg_target_by_period(self, title: str | None = None):
+        """Panel na okres; średni target po bucketach."""
+        return trellis.plot_avg_target_by_period(self, title)
+
+    def plot_pit_ttc(self, title: str | None = None):
+        """Target obserwowany vs estymowany z dyskretyzacji per okres (PIT/TTC)."""
+        return trellis.plot_pit_ttc(self, title)
