@@ -96,7 +96,7 @@ rdzenia. Dla Sparka to dokładnie dzisiejsza mechanika
 `SparkSource._agg`/`frame_for` (memoizacja: jeden `groupBy` na zmienną,
 `persist()` zalecany jak dotąd) — rozszerzona z użycia "tylko dla raportu"
 na wszystkie analizy. Wyniki pozostają IDENTYCZNE z danymi wierszowymi
-(dowód równoważności pseudo-obserwacji: [raport-spark.md](raport-spark.md),
+(dowód równoważności pseudo-obserwacji: [2026-07-02-raport-spark.md](2026-07-02-raport-spark.md),
 sekcja 1); przybliżenie pojawia się wyłącznie przy mikro-binowaniu
 (`max_levels`, tamże 5.2).
 

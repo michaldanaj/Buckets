@@ -45,7 +45,7 @@ TOTAL   5  TOTAL    TOTAL  ...           4      7    0.571429  1.000000
 ```
 
 Braki danych zmiennej trafiają do osobnego bina `<NA>` (zawsze pierwszy
-wiersz). Kontrakt kolumn i typów: [spec/typy-danych.md](spec/typy-danych.md).
+wiersz). Kontrakt kolumn i typów: [spec/2026-05-31-typy-danych.md](spec/2026-05-31-typy-danych.md).
 
 ### Zmienna ciągła — `bckt_cut_stats`
 
@@ -143,7 +143,7 @@ agregat (`groupBy` + sumy wag), który po `toPandas()` wchodzi w standardowy
 pipeline jako **ważone pseudo-obserwacje** — wyniki są identyczne jak na
 danych wierszowych (przybliżenie pojawia się wyłącznie przy mikro-binowaniu
 zmiennych o ekstremalnej liczbie unikalnych wartości, próg `max_levels`).
-Projekt: [spec/raport-spark.md](spec/raport-spark.md).
+Projekt: [spec/2026-07-02-raport-spark.md](spec/2026-07-02-raport-spark.md).
 
 ```python
 import buckets.spark as sp
@@ -182,7 +182,7 @@ uv run mkdocs serve            # dokumentacja API (mkdocstrings)
 ```
 
 Dokumenty projektowe w [spec/](spec/): kontrakt typów
-([typy-danych.md](spec/typy-danych.md)), architektura klas
-([buck-refaktor-klasy.md](spec/buck-refaktor-klasy.md)), ścieżka Spark
-([raport-spark.md](spec/raport-spark.md)), odłożone pomysły
-([backlog.md](spec/backlog.md)).
+([2026-05-31-typy-danych.md](spec/2026-05-31-typy-danych.md)), architektura klas
+([2026-05-31-buck-refaktor-klasy.md](spec/2026-05-31-buck-refaktor-klasy.md)), ścieżka Spark
+([2026-07-02-raport-spark.md](spec/2026-07-02-raport-spark.md)), odłożone pomysły
+([2026-05-31-backlog.md](spec/2026-05-31-backlog.md)).

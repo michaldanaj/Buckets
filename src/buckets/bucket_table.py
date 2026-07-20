@@ -9,7 +9,7 @@ dopiero w `to_frame(total=True)`. Dzięki temu kontrakt typów jest narzucany
 w jednym miejscu (`_canonicalize`) i nie psują go wstrzykiwane do kolumn
 wartości `"TOTAL"`/`pd.NA`.
 
-Szczegóły projektu: spec/buck-refaktor-klasy.md, kontrakt typów: spec/typy-danych.md.
+Szczegóły projektu: spec/2026-05-31-buck-refaktor-klasy.md, kontrakt typów: spec/2026-05-31-typy-danych.md.
 """
 
 from __future__ import annotations
@@ -259,7 +259,7 @@ class BucketTable:
             )
         else:
             # kwantyle WAŻONE — dla wag całkowitych identyczne z kwantylami
-            # danych zreplikowanych wierszowo (spec/raport-spark.md, 3.1)
+            # danych zreplikowanych wierszowo (spec/2026-07-02-raport-spark.md, 3.1)
             edges = list(dict.fromkeys(
                 st.weighted_quantile(variable, weights, q, interpolation="lower")
                 for q in qs

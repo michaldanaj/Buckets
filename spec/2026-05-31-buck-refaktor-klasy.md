@@ -2,7 +2,7 @@
 
 Dokument projektuje podział obecnego, proceduralnego [src/buckets/buck.py](../src/buckets/buck.py)
 na klasy i metody. Projekt od początku uwzględnia problemy z typami danych
-opisane w [spec/typy-danych.md](typy-danych.md) — to one wyznaczają główną
+opisane w [spec/2026-05-31-typy-danych.md](2026-05-31-typy-danych.md) — to one wyznaczają główną
 decyzję architektoniczną.
 
 > Zakres: dokument opisuje **docelowy kształt API i podział odpowiedzialności**,
@@ -197,7 +197,7 @@ fabryki ciągłe tylko wyznaczają granice i do niej delegują.
 - agregacja przez `_aggregate` na etykietach binów,
 - `mean/median` z oryginalnej zmiennej per bin,
 - `od/do` przypisane przez **mapę `bin → (od, do)`** (nie pozycyjnie) — usuwa
-  kruchość zdiagnozowaną w [spek typów](typy-danych.md),
+  kruchość zdiagnozowaną w [spek typów](2026-05-31-typy-danych.md),
 - `discrete = pd.NA` we wszystkich wierszach (przedział opisują `od/srodek/do`).
 
 #### `from_quantiles` (dawne `bckt_cut_stats` z `bins: int`)
@@ -254,7 +254,7 @@ nadzbiorem obu wcześniejszych wariantów.
 
 > **Uwaga:** docelowo `DistributionOverTime` ma wchodzić do domyślnej analizy
 > zmiennej (`VariableAnalysis.build()`), gdy zdefiniowana jest główna kolumna
-> czasowa — nie tylko stać obok. Opis: [backlog.md](backlog.md), pkt 2.
+> czasowa — nie tylko stać obok. Opis: [2026-05-31-backlog.md](2026-05-31-backlog.md), pkt 2.
 
 ---
 
@@ -285,7 +285,7 @@ kontrakt listy dla [report_html.py](../src/buckets/report_html.py) na czas migra
 > **Uwaga:** sztywne pola powyżej to świadomy etap pierwszej implementacji.
 > Docelowe rozwiązanie jest inne — `VariableAnalysis` ma się stać otwartą
 > kolekcją elementów (`ReportElement`), do której można dodać dowolną analizę
-> (tabelę, wykres, tekst). Opis wymagania i propozycji: [backlog.md](backlog.md).
+> (tabelę, wykres, tekst). Opis wymagania i propozycji: [2026-05-31-backlog.md](2026-05-31-backlog.md).
 
 ---
 
@@ -328,7 +328,7 @@ opakowania na czas migracji testów i [report_html.py](../src/buckets/report_htm
 
 ## 6. Kontrakt typów (utrwalony w `BucketTable._canonicalize`)
 
-Powtórzony z [spec/typy-danych.md](typy-danych.md) — egzekwowany w jednym miejscu.
+Powtórzony z [spec/2026-05-31-typy-danych.md](2026-05-31-typy-danych.md) — egzekwowany w jednym miejscu.
 
 | Kolumna | Typ | Uwagi |
 |---|---|---|
@@ -340,7 +340,7 @@ Powtórzony z [spec/typy-danych.md](typy-danych.md) — egzekwowany w jednym mie
 | `sum_target`, `n_obs` | `Int64` | (gdy wagi całkowite; przy wagach ułamkowych `Float64`) |
 | `avg_target`, `avg_pred`, `pct_obs` | `Float64` | |
 
-Reguły ogólne (z [spek typów](typy-danych.md)):
+Reguły ogólne (z [spek typów](2026-05-31-typy-danych.md)):
 1. **zachowanie naturalnego typu zmiennej** — `Int64` zostaje `Int64`, `Float64`
    zostaje `Float64`. Świadome odejście od podejścia z gałęzi `typy`, która
    promowała numeryczną z brakami `Int64 → Float64` przed `groupby`. Powód:
@@ -372,7 +372,7 @@ pd.Series([1.0, 2.0]).convert_dtypes()   # -> Int64, NIE Float64!
 
 Gdyby `mean`/`median`/`od`/`srodek`/`do` zawierały akurat liczby całkowite,
 `convert_dtypes()` zepsułby ich zadeklarowany `Float64`. To ta sama klasa
-niestabilności, którą opisuje [spec/typy-danych.md](typy-danych.md).
+niestabilności, którą opisuje [spec/2026-05-31-typy-danych.md](2026-05-31-typy-danych.md).
 
 Dlatego **jawna mapa `astype` jest jedynym źródłem prawdy i jest aplikowana jako
 ostatnia**, żeby wygrywała z inferencją. Sekwencja w `_canonicalize`:
@@ -432,7 +432,7 @@ Inaczej test i kod „zgadują" niezależnie i mogą się rozjechać.
 
 8. **`to_frame` zwraca indeks = `bin`.** Zachowuje zgodność z dzisiejszymi
    referencjami testowymi i minimalizuje migrację. Czystsza alternatywa
-   (`RangeIndex` + kolumna `bin`) trafia do [backlog.md](backlog.md) jako
+   (`RangeIndex` + kolumna `bin`) trafia do [2026-05-31-backlog.md](2026-05-31-backlog.md) jako
    późniejsze porządkowanie.
 
 ---
@@ -493,7 +493,7 @@ raz `float64`) i oczekiwanie `"8.0"` zamiast `"8"`.
      `bin` = `"8"`) → zaktualizować oczekiwanie **zgodnie z kontraktem** i
      odnotować dlaczego.
 
-   Analiza z gałęzi `typy` ([spec/typy-danych.md](typy-danych.md)) już częściowo
+   Analiza z gałęzi `typy` ([spec/2026-05-31-typy-danych.md](2026-05-31-typy-danych.md)) już częściowo
    ten triage wykonała.
 
 5. **`assert_frame_equal(..., check_dtype=True)`** — **decyzja**. Strict łapie

@@ -33,7 +33,7 @@ class BucketTests(unittest.TestCase):
     def df_from_array(self, x, index, discr_type='string'):
         """
             Buduje referencyjny DataFrame z listy rekordów, nakładając jawnie typy
-            zgodne z kontraktem (spec/typy-danych.md) — bez polegania na inferencji
+            zgodne z kontraktem (spec/2026-05-31-typy-danych.md) — bez polegania na inferencji
             `convert_dtypes`. Kolumny Float64 są tworzone przez `to_numeric`, by
             poprawnie obsłużyć kolumny złożone z samych pd.NA.
 

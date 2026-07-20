@@ -2,7 +2,7 @@
 """
 Most między danymi zagregowanymi (np. w Sparku) a pandasowym rdzeniem pakietu.
 
-Projekt: spec/raport-spark.md. Kontrakt kanonicznego agregatu (sekcja 1):
+Projekt: spec/2026-07-02-raport-spark.md. Kontrakt kanonicznego agregatu (sekcja 1):
 ramka pandas z jedną grupą na wiersz, o kolumnach:
 
 - kolumna zmiennej (dowolna nazwa; braki jako osobna grupa),
@@ -14,7 +14,7 @@ ramka pandas z jedną grupą na wiersz, o kolumnach:
 `to_pseudo_obs` zamienia taki agregat na ważone pseudo-obserwacje, które
 przechodzą przez istniejący, ważony pipeline (BucketTable, gini, drzewo,
 DistributionOverTime) dając wyniki IDENTYCZNE jak dane wierszowe — dowód
-równoważności: tabela w spec/raport-spark.md, sekcja 1; testy:
+równoważności: tabela w spec/2026-07-02-raport-spark.md, sekcja 1; testy:
 tests/test_pseudo_obs.py.
 
 Ten moduł nie importuje pyspark na poziomie modułu — funkcje czysto
@@ -51,7 +51,7 @@ def to_pseudo_obs(agg: pd.DataFrame) -> pd.DataFrame:
     oba z ``pred = sum_pred / n_obs`` (gdy ``sum_pred`` obecne). Wiersze
     o wadze 0 są pomijane. Rozbicie 0/1 (a nie ``target=avg_target``)
     zachowuje całkowitość sum — kontrakt Int64 dla ``sum_target``/``n_obs``
-    (spec/raport-spark.md, 5.1) — oraz dokładność drzewa i gini.
+    (spec/2026-07-02-raport-spark.md, 5.1) — oraz dokładność drzewa i gini.
 
     Args:
         agg: kanoniczny agregat (patrz docstring modułu). Kolumny spoza
@@ -105,7 +105,7 @@ def _functions():
 
 def _micro_bin(sdf, var: str, max_levels: int, relative_error: float):
     """
-    Bezpiecznik kardynalności (spec/raport-spark.md, 5.2): zastępuje wartości
+    Bezpiecznik kardynalności (spec/2026-07-02-raport-spark.md, 5.2): zastępuje wartości
     `var` środkami mikro-binów kwantylowych. To NIE jest binowanie raportowe
     (patrz sekcja 1 specyfikacji) — tylko redukcja stanu pośredniego;
     od tego momentu wyniki są kontrolowanie przybliżone.
@@ -162,7 +162,7 @@ def aggregate_variable(
 
     `groupBy(var[, time_col])` z sumami wag — jedyna operacja wykonywana po
     stronie Sparka. Zmienna ciągła jest grupowana po SUROWEJ wartości; biny
-    raportowe wyznaczy pandas na pseudo-obserwacjach (spec/raport-spark.md,
+    raportowe wyznaczy pandas na pseudo-obserwacjach (spec/2026-07-02-raport-spark.md,
     sekcja 1). Dopiero gdy `approx_count_distinct(var) > max_levels`,
     wartości są wcześniej zwijane do środków mikro-binów kwantylowych
     (`_micro_bin`) — wyniki stają się wtedy przybliżone.
@@ -222,7 +222,7 @@ class SparkSource:
     (wagi są w tej ścieżce obowiązkowe, bo niosą krotności z agregatu).
 
     Zalecenie wydajnościowe: `sdf.persist()` przed generowaniem raportu
-    (jeden groupBy na zmienną — spec/raport-spark.md, 5.4).
+    (jeden groupBy na zmienną — spec/2026-07-02-raport-spark.md, 5.4).
     """
 
     def __init__(self, sdf, types: ct.ColumnTypes, max_levels: int = 100_000):
@@ -279,7 +279,7 @@ def ct_weights_in_sdf(types: ct.ColumnTypes, sdf) -> str | None:
 
 def column_types_from_spark(sdf, discrete_threshold: int = 20) -> ct.ColumnTypes:
     """
-    Buduje `ColumnTypes` ze schematu ramki Spark (spec/raport-spark.md, 4.3).
+    Buduje `ColumnTypes` ze schematu ramki Spark (spec/2026-07-02-raport-spark.md, 4.3).
 
     Typ analityczny: kolumny nienumeryczne → categorical; numeryczne →
     discrete/continuous wg `approx_count_distinct` (jeden job Spark na całą

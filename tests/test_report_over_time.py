@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-Testy wpięcia sekcji "w czasie" w raport (spec/raport-w-czasie.md, 3.3):
+Testy wpięcia sekcji "w czasie" w raport (spec/2026-07-03-raport-w-czasie.md, 3.3):
 pola VariableAnalysis, kolejność/zawartość payloadu, regresja bez time_col
 oraz równoważność wag dla rozkładów w czasie.
 """

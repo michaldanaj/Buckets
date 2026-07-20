@@ -2,7 +2,7 @@
 """
 Testy równoważności: pseudo-obserwacje z kanonicznego agregatu ≡ dane surowe.
 
-To kluczowy test mechanizmu ze spec/raport-spark.md (sekcja 1) i celowo NIE
+To kluczowy test mechanizmu ze spec/2026-07-02-raport-spark.md (sekcja 1) i celowo NIE
 wymaga Sparka: agregat jest liczony pandasowym `groupby` o tym samym
 kontrakcie, który w etapie 4 wyprodukuje `spark.aggregate_variable`.
 Jeśli te testy przechodzą, poprawność ścieżki sparkowej sprowadza się do

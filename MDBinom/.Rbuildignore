@@ -1,0 +1,11 @@
+^ver.*
+^\..*
+^arch\.zip
+^dewel.*
+^gen.*
+^NEWS\.md^
+^NEWS\.old^
+^testy.R
+^.*\.Rproj$
+^\.Rproj\.user$
+dev/*

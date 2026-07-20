@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-Testy poprawności obsługi wag w rdzeniu pakietu (spec/raport-spark.md, sekcja 3).
+Testy poprawności obsługi wag w rdzeniu pakietu (spec/2026-07-02-raport-spark.md, sekcja 3).
 
 Zasada: wynik na danych ważonych wagami całkowitymi musi być identyczny
 z wynikiem na danych zreplikowanych wierszowo (wiersz o wadze k -> k wierszy

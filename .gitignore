@@ -11,5 +11,13 @@ wheels/
 
 # Wyniki raportu
 result/
+
+# Przykładowy raport referencyjny R (MDBinom)
+raport_aa/
+
+# Binarne dumpy sesji/danych R w materiale referencyjnym MDBinom
+# (UCI_Credit_Card.RData to R-owa wersja data/*.csv — odtwarzalna)
+MDBinom/**/*.RData
+
 # LibreOffice lock files
 .~lock.*#

@@ -1,0 +1,113 @@
+
+
+
+# Wstęp
+
+Mamy trzy funkcje które generują dyskretyzację, plus funkcje do drzewek, plus
+funkcja reg_nieparam. Każda z nich (chyba) zwraca inną strukture dyskretyzacji.
+Postaram się opisać i podsumować to, żeby to uporządkować. 
+
+Dodatkowo przydałoby się dodać wszędzie możliwość podania wag.
+
+Dodatkowo fajnie by było porobić automatyczne testy (taaa :)
+
+```{r, echo=FALSE}
+	library(MDBinom)
+	n<-1000
+	df <- data.frame(
+			x = rnorm(n),
+			eps = rnorm(n)
+					)
+	df$y <- as.numeric(df$x + df$eps > 0)
+```
+
+
+# buckety_br
+ 
+```{r}
+	buck1 <- buckety_br(df$x, df$y, 5)
+	
+	buck1$fitted <- buck1$nr
+	df$przedzial <- przypisz2(df$x, buck1)
+	
+	funkcje <- 'buckety_br'
+	buck1
+```
+
+
+# buckety_stat
+
+```{r}
+	buck2 <- buckety_stat(df$przedzial, df$y)
+	funkcje <- c(funkcje, 'buckety_stat')
+	
+	buck2
+```
+
+# buckey_stat2
+
+```{r}
+	buck3 <- buckety_stat2(unique(c(-Inf, buck1$od, buck2$do, Inf)),df$x, df$y)
+	funkcje <- c(funkcje, 'buckety_stat2')
+	
+	buck3
+```
+
+
+# reg_nieparam
+
+```{r}
+	buck4 <- reg_nieparam(df$x, df$y, 5)
+	funkcje <- c(funkcje, 'reg_nieparam')
+	buck4
+```
+
+# univariate_anal_stats1
+
+Najbardziej zaawansowana z nich, wykorzystuje między innymi drzewa. Zobaczny,
+jaką strukturę ona zwróci.
+
+Zdaje się, że jeszcze mapping_war powinna być taka kolumna. Przyjrzeć się temu.
+
+```{r}
+	buck5 <- univariate_anal_stats1(df$x, df$y)
+	funkcje <- c(funkcje, 'univariate_anal_stats1')
+	
+	buck5
+```
+
+
+# drzewo
+
+Funkcja drzewo wykorzystywana jest przez funkcję univariate_anal_stats1.
+Zobaczymy co tamta jeszcze dodaje do strukury.
+
+```{r}
+	buck6 <- drzewo(df$x, df$y, max_gleb=3)
+	funkcje <- c(funkcje, 'drzewo')
+	
+	buck6
+```
+
+
+# Razem
+
+Nazwy kolumn ze wszyskich funkcji.
+```{r}
+	nazwy_kol <- list(
+			nazwy1 <- names(buck1),
+			nazwy2 <- names(buck2),
+			nazwy3 <- names(buck3),
+			nazwy4 <- names(buck4),
+			nazwy5 <- names(buck5),
+			nazwy6 <- names(buck6)
+			)
+	
+	unikalne_nazwy <- unique(unlist(nazwy_kol))
+	
+	nazwy_gdzie <-sapply(nazwy_kol,function(x)unikalne_nazwy %in% x)
+	rownames(nazwy_gdzie) <- unikalne_nazwy
+	
+	colnames(nazwy_gdzie)<-funkcje
+	nazwy_gdzie
+```

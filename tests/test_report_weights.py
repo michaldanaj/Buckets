@@ -1,7 +1,7 @@
 # coding: utf-8
 """
 Testy raportu z wagami: rola WEIGHTS w ColumnTypes + przepływ wag przez
-DatasetReport/VariableAnalysis (spec/raport-spark.md, sekcje 3.4 i 4.2).
+DatasetReport/VariableAnalysis (spec/2026-07-02-raport-spark.md, sekcje 3.4 i 4.2).
 
 Równoważność: pełna analiza (buckety, gini, gini w czasie, dyskretyzacja
 drzewem) na ramce ważonej == na ramce zreplikowanej wierszowo wg wag.

@@ -243,7 +243,7 @@ daje w bucketach — i gdzie są pułapki.
   ).to_frame()
   ```
 
-- [ ] **Pułapka (`spec/backlog.md`, pkt 7):** kolumna `discrete`
+- [ ] **Pułapka (`spec/2026-05-31-backlog.md`, pkt 7):** kolumna `discrete`
   w wyniku jest stringifikowana — porządek kategorii niesie *kolejność
   wierszy*, ale nie typ kolumny. Sortowanie po niej jest więc
   alfabetyczne:
@@ -602,7 +602,7 @@ Tutorial 0).
 
 **Sprawdź się:** assert przechodzi — to ta sama równoważność
 waga=krotność co w Tutorialu 6; dowód i kontrakt agregatu:
-`spec/raport-spark.md`, sekcja 1.
+`spec/2026-07-02-raport-spark.md`, sekcja 1.
 
 ---
 
@@ -704,7 +704,7 @@ raportowi pseudo-obserwacje.
   (`test_raport_default.py` vs `raport_spark_default.py`) — sekcje
   i liczby są identyczne; różnice mogą pojawić się wyłącznie przy
   mikro-binowaniu zmiennych o ekstremalnej kardynalności
-  (`max_levels`, `spec/raport-spark.md` 5.2).
+  (`max_levels`, `spec/2026-07-02-raport-spark.md` 5.2).
 
 **Sprawdź się:** raport w `result/` zawiera dla każdej zmiennej gini
 (pełne i po dyskretyzacji), gini w czasie, tabelę dyskretyzacji
@@ -716,8 +716,8 @@ i wykresy bucketów w czasie.
 
 ## Co dalej
 
-- Kontrakt kolumn i typów wyników: `spec/typy-danych.md`
-- Architektura klas: `spec/buck-refaktor-klasy.md`
-- Ścieżka Spark (dowód równoważności pseudo-obserwacji): `spec/raport-spark.md`
-- Sekcje raportu "w czasie": `spec/raport-w-czasie.md`
+- Kontrakt kolumn i typów wyników: `spec/2026-05-31-typy-danych.md`
+- Architektura klas: `spec/2026-05-31-buck-refaktor-klasy.md`
+- Ścieżka Spark (dowód równoważności pseudo-obserwacji): `spec/2026-07-02-raport-spark.md`
+- Sekcje raportu "w czasie": `spec/2026-07-03-raport-w-czasie.md`
 - Testy jako dodatkowe przykłady użycia: `tests/`

@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-Testy ścieżki Spark (spec/raport-spark.md, etap 4).
+Testy ścieżki Spark (spec/2026-07-02-raport-spark.md, etap 4).
 
 Wymagają pyspark + JVM: bez pyspark cały plik jest pomijany
 (importorskip), bez działającej JVM — skip w fixturze `spark`.

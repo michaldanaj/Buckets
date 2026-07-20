@@ -263,7 +263,7 @@ Kanonizacja ([bucket_table.py:339-344](../src/buckets/bucket_table.py#L339-L344)
 wybiera `Int64`, gdy wartości są całkowite. Pseudo-obserwacje mają
 `target ∈ {0,1}` i wagi całkowite (gdy oryginalne wagi były całkowite/None),
 więc sumy pozostają całkowite — **kontrakt typów z
-[typy-danych.md](typy-danych.md) jest zachowany bez wyjątków**. To był główny
+[2026-05-31-typy-danych.md](2026-05-31-typy-danych.md) jest zachowany bez wyjątków**. To był główny
 powód wyboru pseudo-obserwacji z rozbiciem 0/1 zamiast wariantu
 `(value, target=avg_target, weights=n_obs)`.
 

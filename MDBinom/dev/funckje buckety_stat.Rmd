@@ -1,0 +1,121 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Wstêp
+
+Mamy trzy funkcje które generuj¹ dyskretyzacjê, plus funkcje do drzewek, plus
+funkcja reg_nieparam. Ka¿da z nich (chyba) zwraca inn¹ strukture dyskretyzacji.
+Postaram siê opisaæ i podsumowaæ to, ¿eby to uporz¹dkowaæ. 
+
+Dodatkowo przyda³oby siê dodaæ wszêdzie mo¿liwoœæ podania wag.
+
+Dodatkowo fajnie by by³o porobiæ automatyczne testy (taaa :)
+
+```{r, echo=FALSE}
+	library(MDBinom)
+	n<-1000
+	df <- data.frame(
+			x = rnorm(n),
+			eps = rnorm(n)
+					)
+	df$y <- as.numeric(df$x + df$eps > 0)
+```
+
+
+# buckety_br
+ 
+```{r}
+	buck1 <- buckety_br(df$x, df$y, 5)
+	
+	buck1$fitted <- buck1$nr
+	df$przedzial <- przypisz2(df$x, buck1)
+	
+	funkcje <- 'buckety_br'
+	buck1
+```
+
+
+# buckety_stat
+
+```{r}
+	buck2 <- buckety_stat(df$przedzial, df$y)
+	funkcje <- c(funkcje, 'buckety_stat')
+	
+	buck2
+```
+
+# buckey_stat2
+
+```{r}
+	buck3 <- buckety_stat2(unique(c(-Inf, buck1$od, buck2$do, Inf)),df$x, df$y)
+	funkcje <- c(funkcje, 'buckety_stat2')
+	
+	buck3
+```
+
+
+# reg_nieparam
+
+```{r}
+	buck4 <- reg_nieparam(df$x, df$y, 5)
+	funkcje <- c(funkcje, 'reg_nieparam')
+	buck4
+```
+
+# univariate_anal_stats1
+
+Najbardziej zaawansowana z nich, wykorzystuje miêdzy innymi drzewa. Zobaczny,
+jak¹ strukturê ona zwróci.
+
+Zdaje siê, ¿e jeszcze mapping_war powinna byæ taka kolumna. Przyjrzeæ siê temu.
+
+```{r}
+	buck5 <- univariate_anal_stats1(df$x, df$y)
+	funkcje <- c(funkcje, 'univariate_anal_stats1')
+	
+	buck5
+```
+
+
+# drzewo
+
+Funkcja drzewo wykorzystywana jest przez funkcjê univariate_anal_stats1.
+Zobaczymy co tamta jeszcze dodaje do strukury.
+
+```{r}
+	buck6 <- drzewo(df$x, df$y, max_gleb=3)
+	funkcje <- c(funkcje, 'drzewo')
+	
+	buck6
+```
+
+
+# Razem
+
+Nazwy kolumn ze wszyskich funkcji.
+```{r}
+	nazwy_kol <- list(
+			nazwy1 <- names(buck1),
+			nazwy2 <- names(buck2),
+			nazwy3 <- names(buck3),
+			nazwy4 <- names(buck4),
+			nazwy5 <- names(buck5),
+			nazwy6 <- names(buck6)
+			)
+	
+	unikalne_nazwy <- unique(unlist(nazwy_kol))
+	
+	nazwy_gdzie <-sapply(nazwy_kol,function(x)unikalne_nazwy %in% x)
+	rownames(nazwy_gdzie) <- unikalne_nazwy
+	
+	colnames(nazwy_gdzie)<-funkcje
+	nazwy_gdzie
+```
+
+# Plan
+
+Funckje buckety_stat, buckety_br i buckety_sat2 wyliczajê praktycznie to samo, tylko maj¹ ró¿ne parametry wejœciowe i ró¿ne metody. Zastanowiæ siê, czy nie po³¹czyæ ich w jedn¹ funkcjê. Tak na prawdê najbardziej podstawow¹ funkcj¹ jest buckety_stat, która póŸniej 
+

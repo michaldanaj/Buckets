@@ -99,7 +99,7 @@ o rozpoznawalny układ, nie klon.
 ### 2.3 Ścieżka Spark bez zmian
 
 Wszystkie nowe statystyki są ważonymi sumami/średnimi po (okres × bucket),
-więc na pseudo-obserwacjach (spec/raport-spark.md) wychodzą **dokładnie** —
+więc na pseudo-obserwacjach (spec/2026-07-02-raport-spark.md) wychodzą **dokładnie** —
 `estim` to ważona średnia `pred` per okres, a `pred` pseudo-obserwacji
 niesie `avg_pred` grupy. Zero zmian w `spark.py`; test równoważności
 w sekcji 6.
