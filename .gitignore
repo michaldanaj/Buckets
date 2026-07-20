@@ -11,3 +11,5 @@ wheels/
 
 # Wyniki raportu
 result/
+# LibreOffice lock files
+.~lock.*#
