@@ -472,16 +472,15 @@ oba asserty przechodzą bez wyjątku.
   dot.avg_target_total()  # średni target per okres (PIT)
   ```
 
-- [ ] Narysuj wykresy Trellis (panel per wartość zmiennej) — moduł
-  `buckets.trellis`:
+- [ ] Narysuj wykresy Trellis (panel per wartość zmiennej) — wykresy są
+  metodami obiektu (spójnie z `BucketTable.plot`; `buckets.trellis` to już
+  tylko warstwa implementacyjna):
 
   ```python
-  import buckets.trellis as tr
-
-  tr.plot_distribution(dot, title="segment — struktura w czasie")
-  tr.plot_avg_target_by_bucket(dot, title="segment — target w czasie")
-  tr.plot_avg_target_by_period(dot)
-  tr.plot_pit_ttc(dot)   # target w czasie vs średnia predykcja
+  dot.plot_distribution(title="segment — struktura w czasie")
+  dot.plot_avg_target_by_bucket(title="segment — target w czasie")
+  dot.plot_avg_target_by_period()
+  dot.plot_pit_ttc()   # target w czasie vs średnia predykcja
   ```
 
 **Sprawdź się:** dane syntetyczne są stacjonarne, więc linie
@@ -530,11 +529,29 @@ i po dyskretyzacji), gini w czasie, tabela dyskretyzacji, wykresy.
   report_html.save(report.to_html(), "result/raport_tutorial.html")
   ```
 
-- [ ] Zanim otworzysz HTML, podejrzyj składowe w Pythonie:
+- [ ] Zanim otworzysz HTML, podejrzyj składowe w Pythonie — `DatasetReport`
+  jest **trwałą kolekcją analiz** (obiekt roboczy, nie przelot): liczy się raz
+  i udostępnia dict-owo:
 
   ```python
-  report.buckets()["dochod"]     # tabela dyskretyzacji per zmienna
-  report.analyses()["segment"]   # pełny obiekt VariableAnalysis
+  report.build()                 # policz kolekcję jawnie (albo leniwie: 1. dostęp)
+  list(report)                   # nazwy analizowanych zmiennych
+  report["segment"]              # VariableAnalysis (dict-owy dostęp)
+  report["segment"].buckets      # tabela dyskretyzacji
+  report["segment"].gini_value   # skalar GINI
+  report.buckets()["dochod"]     # sama tabela bucketów (lekka ścieżka, bez analiz)
+  ```
+
+- [ ] Kolekcję można poprawiać i renderować wielokrotnie (bez przeliczania
+  całości), a także zapisać między sesjami:
+
+  ```python
+  report.rebuild("dochod")                          # przelicz jedną zmienną
+  report["segment"].add_text("Po korekcie 2026-06.", title="Uwagi")  # dołóż tekst
+  report_html.save(report.to_html(order="alpha"), "result/raport.html")  # "gini"|"alpha"|lista
+
+  report.save("analizy.pkl")                        # trwałość (odpowiednik .RData)
+  report2 = DatasetReport.load("analizy.pkl")       # render/odczyt bez źródła danych
   ```
 
 **Sprawdź się:** raport ma sekcję dla `segment`, `dochod`
