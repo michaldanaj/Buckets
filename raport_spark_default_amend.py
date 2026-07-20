@@ -13,6 +13,7 @@ Wymaga ekstrasa spark i JVM. Uruchomienie:
 """
 
 import os
+os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-21-temurin-jdk/'
 
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
@@ -20,6 +21,8 @@ from pyspark.sql import SparkSession
 import buckets.spark as sp
 from buckets import report_html
 from buckets.report import DatasetReport
+
+
 
 spark = (
     SparkSession.builder.master("local[*]")

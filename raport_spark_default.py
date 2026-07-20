@@ -2,13 +2,14 @@
 """
 Sparkowy odpowiednik test_raport_default.py: raport dla danych long
 liczony z ramki Spark (agregacja w Sparku, analiza w pandas —
-spec/raport-spark.md).
+spec/2026-07-02-raport-spark.md).
 
 Wymaga ekstrasa spark i JVM. Uruchomienie:
     uv run --extra spark python raport_spark_default.py
 """
 
 import os
+os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-21-temurin-jdk/'
 
 import pyspark.sql.functions as F
 from pyspark.sql import SparkSession
