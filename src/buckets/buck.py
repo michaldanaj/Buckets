@@ -412,10 +412,11 @@ def gen_buckets_for_df(
 
 def gen_report_objects(
     df: pd.DataFrame, types: ct.ColumnTypes, max_levels: int = 20
-) -> dict[str, list]:
+) -> dict:
     """
-    Funkcja generująca raport ze statystykami dla zmiennych w ramce danych,
-    opisanych w `types`.
+    Funkcja generująca kolekcję analiz dla zmiennych w ramce danych,
+    opisanych w `types`. Wynik można przekazać wprost do
+    `report_html.generate_report`.
 
     Args:
         types: Obiekt klasy ColumnTypes.
@@ -423,12 +424,11 @@ def gen_report_objects(
         df: Ramka danych Pandas.
 
     Returns:
-        Słownik, którego kluczem jest nazwa zmiennej, a wartością lista:
-        [tabelka ze statystykami, wykres utworzony na jej podstawie].
+        Słownik `{nazwa zmiennej: VariableAnalysis}`.
     """
     from buckets.report import DatasetReport
 
-    return DatasetReport(df, types, categorical_max_levels=max_levels).to_payload()
+    return DatasetReport(df, types, categorical_max_levels=max_levels).analyses()
 
 
 if __name__ == "__main__":

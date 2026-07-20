@@ -49,9 +49,11 @@ class TestZCzasem:
     def test_pola_wypelnione(self, analyses):
         for va in analyses.values():
             assert va.dist_over_time is not None
-            for fig in (va.fig_distribution, va.fig_target_by_bucket,
-                        va.fig_target_by_period, va.fig_pit_ttc):
-                assert isinstance(fig, plt.Figure)
+            # figury nie są stanem — wchodzą jako nazwane elementy-fabryki
+            for key in ("pit_ttc", "distribution", "avg_target"):
+                assert key in va
+                html = va[key].render_html()
+                assert "<img" in html
 
     def test_kolejnosc_bucketow_wg_dyskretyzacji(self, analyses):
         va = analyses["x"]
@@ -68,12 +70,16 @@ class TestZCzasem:
         # pred = przypisany avg_target -> estim istnieje
         assert analyses["x"].dist_over_time.estim() is not None
 
-    def test_payload(self, analyses):
-        payload = analyses["x"].to_report_payload()
-        assert len(payload) == 13
+    def test_elementy(self, analyses):
+        from buckets.report_elements import TableElement
+
+        va = analyses["x"]
+        # pełny zestaw sekcji (Discrimination -> PIT/TTC -> Buckets ->
+        # Distribution -> Average target) = 13 elementów
+        assert len(va.elements) == 13
         # ramki pivotowe mają czas jako kolumnę (report_html: index=False)
-        assert "czas" in payload[8].columns   # counts_frame
-        assert "czas" in payload[12].columns  # avg_target_frame
+        tabele = [el.df for el in va.elements if isinstance(el, TableElement)]
+        assert any("czas" in df.columns for df in tabele)
 
     def test_raport_html(self):
         types = ct.ColumnTypes(DF.drop(columns=["w"]))
@@ -83,16 +89,16 @@ class TestZCzasem:
 
 
 class TestBezCzasu:
-    def test_pola_none_i_payload_jak_dotychczas(self):
+    def test_brak_sekcji_w_czasie(self):
         types = ct.ColumnTypes(DF.drop(columns=["w", "czas"]))
         analyses = DatasetReport(DF.drop(columns=["w", "czas"]), types).analyses()
         va = analyses["x"]
         assert va.dist_over_time is None
-        assert va.fig_pit_ttc is None
-        payload = va.to_report_payload()
-        # dotychczasowy kontrakt + dwa None sekcji PIT/TTC
-        assert len(payload) == 7
-        assert payload[1] is None and payload[3] is None
+        # bez time_col: brak sekcji PIT/TTC i "w czasie"
+        assert "pit_ttc" not in va and "distribution" not in va
+        # zostają tylko: gini (tabela), dyskretyzacja (tabela), buckets (wykres)
+        assert len(va.elements) == 3
+        assert "gini" in va and "buckets" in va
 
 
 class TestWagi:
